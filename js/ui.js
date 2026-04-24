@@ -291,6 +291,9 @@ export function createUI(controller) {
 
   function setAllowMoving(active) {
     el['btn-move'].classList.toggle('active', active);
+    el['btn-move'].textContent = active ? '🔓' : '🔒';
+    el['btn-move'].ariaLabel = active ? 'Disable moving' : 'Enable moving';
+    el['btn-move'].title = active ? 'Disable moving' : 'Enable moving';
   }
 
   function setCatalogLoaded(loaded) {
