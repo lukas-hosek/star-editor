@@ -2,6 +2,18 @@
 
 Small browser-only editor for Yale Bright Star Catalogue (BSC5) files. It loads a fixed-width catalog, projects stars onto a WebGL sky view, and lets you select, drag, edit, add, delete, and save star records.
 
+## Running the app
+
+No build step is required. Open `index.html` in a browser, or serve the directory with a minimal static file server if your browser blocks module loading from `file:` URLs.
+
+To start a local test server with Python:
+
+```bash
+python3 -m http.server 8080
+```
+
+Then open `http://localhost:8080` in your browser.
+
 ## What lives where
 
 - `index.html`: static shell for the toolbar, sky canvas, edit panel, and module entrypoint.
@@ -42,10 +54,6 @@ Each parsed star stores:
 - preservation helpers: `_raw` for original record bytes and `_edited` to decide whether serialization should pass through or rewrite the row
 
 This is why serializer changes should be made carefully: untouched records intentionally round-trip without reformatting.
-
-## Running the app
-
-No build step is required. Open `index.html` in a browser, or serve the directory with a minimal static file server if your browser blocks module loading from `file:` URLs.
 
 ## Verification constraints
 

@@ -23,6 +23,11 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Delete star: `js/app.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
 - Save: `js/ui.js` -> `controller.serialize()` -> `serializeCatalog()`
 
+## Code style
+
+- Two blank lines between function declarations (top-level and nested).
+- Indentation: tabs, width 4. Configured in `.vscode/settings.json`.
+
 ## Project-specific rules
 
 - Preserve byte-level round-tripping where possible. `js/catalog.js` intentionally keeps `_raw` for untouched records.
@@ -38,6 +43,10 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Derived star visuals: `refreshStarPhotometry()` in `js/catalog.js`
 - GPU full sync vs incremental sync: `syncAll()`, `syncOne()`, `appendStar()`, `removeAt()` in `js/renderer.js`
 - Form/model conversion: `onFormInput()` and `refreshSelection()` in `js/ui.js`
+
+## Git
+
+- Do not stage, commit, push, or perform any other git operations. The user handles all version control manually.
 
 ## Validation
 

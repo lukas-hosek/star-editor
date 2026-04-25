@@ -11,10 +11,10 @@ import {
 import { pickStar, pixelToRADec } from './picking.js';
 import { createUI } from './ui.js';
 
-const canvas   = document.getElementById('sky');
+const canvas = document.getElementById('sky');
 const gridCanvas = document.getElementById('sky-grid');
 const renderer = createRenderer(canvas, gridCanvas);
-const camera   = createCamera();
+const camera = createCamera();
 
 const state = {
   stars: [],
@@ -27,16 +27,36 @@ const state = {
 };
 
 let needsRender = true;
-function requestRender() { needsRender = true; }
+
+function requestRender() {
+  needsRender = true;
+}
 
 // --- Controller surface consumed by UI ----------------------------
 const controller = {
-  get stars()      { return state.stars; },
-  get addMode()    { return state.addMode; },
-  get allowMoving() { return state.allowMoving; },
-  get gridVisible() { return state.showGrid; },
-  get fileHandle() { return state.fileHandle; },
-  set fileHandle(h) { state.fileHandle = h; },
+  get stars() {
+    return state.stars;
+  },
+
+  get addMode() {
+    return state.addMode;
+  },
+
+  get allowMoving() {
+    return state.allowMoving;
+  },
+
+  get gridVisible() {
+    return state.showGrid;
+  },
+
+  get fileHandle() {
+    return state.fileHandle;
+  },
+
+  set fileHandle(h) {
+    state.fileHandle = h;
+  },
 
   selectedStar() {
     return state.selectedIndex >= 0 ? state.stars[state.selectedIndex] : null;
@@ -57,7 +77,9 @@ const controller = {
     requestRender();
   },
 
-  serialize() { return serializeCatalog(state.stars); },
+  serialize() {
+    return serializeCatalog(state.stars);
+  },
 
   markSaved() {
     state.isDirty = false;
@@ -133,7 +155,8 @@ async function loadDefaultCatalog() {
     }
     const text = await response.text();
     controller.loadCatalog(text, null);
-  } catch (err) {
+  }
+  catch (err) {
     const banner = document.getElementById('banner');
     if (banner) {
       banner.textContent = 'Unable to load default catalog.bsc automatically. Use Open to choose a catalog file.';
@@ -149,9 +172,10 @@ loadDefaultCatalog();
 function selectStar(i) {
   state.selectedIndex = i;
   if (i >= 0) ui.showSelection(state.stars[i]);
-  else        ui.showNoSelection();
+  else ui.showNoSelection();
   requestRender();
 }
+
 
 function addStarAtPixel(px, py) {
   const { ra, dec } = pixelToRADec(camera, px, py);
@@ -166,6 +190,7 @@ function addStarAtPixel(px, py) {
   updateStatus();
   requestRender();
 }
+
 
 function deleteStarAt(i) {
   if (i < 0 || i >= state.stars.length) return;
@@ -210,10 +235,12 @@ canvas.addEventListener('mousedown', (e) => {
         drag.starIndex = i;
         canvas.classList.add('dragging');
       }
-    } else {
+    }
+    else {
       selectStar(-1);
     }
-  } else if (e.button === 2) {
+  }
+  else if (e.button === 2) {
     // RMB: pan
     const [nx, ny] = pixelToNDC(camera, px, py);
     drag.mode = 'pan';
@@ -239,7 +266,8 @@ canvas.addEventListener('mousemove', (e) => {
     state.isDirty = true;
     updateStatus();
     requestRender();
-  } else if (drag.mode === 'pan') {
+  }
+  else if (drag.mode === 'pan') {
     panTo(camera, px, py, drag.startWorld);
     requestRender();
   }
