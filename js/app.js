@@ -315,7 +315,7 @@ canvas.addEventListener('mousedown', (e) => {
 			return;
 		}
 		const alts = skyState.mode === 'local' ? skyState.altitudes : null;
-		const i = pickStar(camera, state.stars, px, py, 12, renderer.brightness, 0.05, alts);
+		const i = pickStar(camera, state.stars, px, py, 12, renderer.brightness, 0.4, alts);
 		if (i >= 0) {
 			const wasSelected = i === state.selectedIndex;
 			selectStar(i);
