@@ -12,6 +12,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
   - camera math and sky projection: `js/camera.js`
   - rendering and GPU buffers: `js/renderer.js`
   - picking and pixel-to-sky conversion: `js/picking.js`
+  - editor/catalog actions and selection state: `js/app-editor-actions.js`
+  - resize, render loop, and live observer updates: `js/app-runtime.js`
   - canvas mouse/keyboard interactions: `js/app-canvas-interactions.js`
   - top-level UI composition and file I/O: `js/ui.js`
   - star form sync and selection panel state: `js/ui-star-form.js`
@@ -19,12 +21,12 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Control flow
 
-- App boot: `index.html` -> `js/app.js`
+- App boot: `index.html` -> `js/app.js` -> `createEditorActions()` / `createCanvasInteractions()` / `startAppRuntime()`
 - File open: `js/ui.js` -> `controller.loadCatalog()` -> `parseCatalog()` -> `syncAll()`
 - Side-panel edit: `js/ui-star-form.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
 - Canvas input: `js/app.js` -> `createCanvasInteractions()` in `js/app-canvas-interactions.js` -> selection / add / drag / pan / zoom handlers
-- Add star: `js/app-canvas-interactions.js` -> `js/app.js:addStarAtPixel()` -> `pixelToRADec()` -> `makeNewStar()` -> `appendStar()`
-- Delete star: `js/app.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
+- Add star: `js/app-canvas-interactions.js` -> `js/app-editor-actions.js:addStarAtPixel()` -> `pixelToRADec()` -> `makeNewStar()` -> `appendStar()`
+- Delete star: `js/app-editor-actions.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
 - Save: `js/ui.js` -> `controller.serialize()` -> `serializeCatalog()`
 
 ## Code style
@@ -44,11 +46,14 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 ## Useful anchors
 
 - Central state: `state` in `js/app.js`
-- Selection logic: `selectStar()` in `js/app.js`
+- Editor action wiring: `createEditorActions()` in `js/app-editor-actions.js`
+- Selection logic: `selectStar()` in `js/app-editor-actions.js`
 - Canvas interaction wiring: `createCanvasInteractions()` in `js/app-canvas-interactions.js`
-- Dirty tracking: `state.isDirty` plus `markSaved()` and `onStarEdited()` in `js/app.js`
+- Runtime scheduling: `startAppRuntime()` in `js/app-runtime.js`
+- Dirty tracking: `state.isDirty` in `js/app.js` plus `markSaved()` and `onStarEdited()` in `js/app-editor-actions.js`
 - Derived star visuals: `refreshStarPhotometry()` in `js/catalog.js`
-- GPU full sync vs incremental sync: `syncAll()`, `syncOne()`- Sky/observer state: `skyState` in `js/app.js`
+- GPU full sync vs incremental sync: `syncAll()`, `syncOne()`
+- Sky/observer state: `skyState` in `js/app.js`
 - Sidereal time and horizon math: `js/sky.js`
 
 ## View modes

@@ -1,0 +1,89 @@
+// Resize handling, render loop scheduling, observer updates, and unload warning.
+
+import { fwdToAltAz, lookAtAltAz, setViewport } from './camera.js';
+import { render, resize, setAltitudes, setZenith } from './renderer.js';
+import { computeAltitudes, updateObserver } from './sky.js';
+
+
+export function startAppRuntime(options)
+{
+	const {
+		camera,
+		renderer,
+		skyState,
+		state,
+		ui,
+		requestRender,
+		consumeRenderRequest,
+		needsObserverState,
+		getSelectedStar,
+	} = options;
+
+	function handleResize()
+	{
+		const rect = renderer.canvas.getBoundingClientRect();
+		const dpr = window.devicePixelRatio || 1;
+		resize(renderer, rect.width, rect.height, dpr);
+		setViewport(camera, rect.width, rect.height);
+		requestRender();
+	}
+
+
+	function frame()
+	{
+		if (consumeRenderRequest())
+		{
+			if (needsObserverState() && skyState.needsAltUpdate)
+			{
+				updateObserver(skyState.observer);
+				if (skyState.preserveAltAz && skyState.mode === 'local')
+				{
+					lookAtAltAz(camera, skyState.savedAlt, skyState.savedAz, skyState.observer.zenithWorld);
+					skyState.preserveAltAz = false;
+				}
+				if (skyState.mode !== 'allsky' && state.stars.length > 0)
+				{
+					skyState.altitudes = computeAltitudes(
+						state.stars, skyState.observer.lat, skyState.observer.lst, skyState.altitudes);
+					setAltitudes(renderer, skyState.altitudes);
+				}
+				setZenith(renderer, skyState.observer.zenithWorld);
+				skyState.needsAltUpdate = false;
+			}
+			render(renderer, camera, getSelectedStar());
+		}
+		requestAnimationFrame(frame);
+	}
+
+
+	function advanceLiveObserverTime()
+	{
+		if (!needsObserverState() || skyState.timeLocked) return;
+		if (skyState.mode === 'local')
+		{
+			const { alt, az } = fwdToAltAz(camera, skyState.observer.zenithWorld);
+			skyState.savedAlt = alt;
+			skyState.savedAz = az;
+			skyState.preserveAltAz = true;
+		}
+		skyState.observer.utcMs = Date.now();
+		skyState.needsAltUpdate = true;
+		requestRender();
+		if (ui.syncSkyTime) ui.syncSkyTime();
+	}
+
+
+	window.addEventListener('resize', handleResize);
+	handleResize();
+	frame();
+	setInterval(advanceLiveObserverTime, 10000);
+
+	window.addEventListener('beforeunload', (e) =>
+	{
+		if (state.isDirty)
+		{
+			e.preventDefault();
+			e.returnValue = '';
+		}
+	});
+}
