@@ -25,6 +25,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Code style
 
+- Allman braces throughout all `.js` files: opening `{` on its own line, at the same indentation level as the preceding statement.
 - Two blank lines between function declarations (top-level and nested).
 - Indentation: tabs, width 4. Configured in `.vscode/settings.json`.
 
@@ -32,9 +33,9 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 - Preserve byte-level round-tripping where possible. `js/catalog.js` intentionally keeps `_raw` for untouched records.
 - Treat `ybsc5.readme` as the authoritative field-layout reference before changing parse/serialize offsets.
-- Do not introduce a Node.js-based verification path. The user does not have Node installed and does not intend to install it.
+- Do not introduce a Node.js-based verification path. The user does- **When adding any new feature, update this file.** Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
+ not have Node installed and does not intend to install it.
 - Prefer minimal browser-manual verification notes in final responses.
-- **When adding any new feature, update this file.** Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
 
 ## Useful anchors
 
@@ -42,17 +43,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Selection logic: `selectStar()` in `js/app.js`
 - Dirty tracking: `state.isDirty` plus `markSaved()` and `onStarEdited()` in `js/app.js`
 - Derived star visuals: `refreshStarPhotometry()` in `js/catalog.js`
-- GPU full sync vs incremental sync: `syncAll()`, `syncOne()`, `appendStar()`, `removeAt()` in `js/renderer.js`
-- Form/model conversion: `onFormInput()` and `refreshSelection()` in `js/ui.js`
-- Sky/observer state: `skyState` in `js/app.js`
+- GPU full sync vs incremental sync: `syncAll()`, `syncOne()`- Sky/observer state: `skyState` in `js/app.js`
 - Sidereal time and horizon math: `js/sky.js`
-
-## Grid overlays
-
-- Toolbar toggles live in `index.html` as `#btn-grid` and `#btn-altaz-grid`; DOM wiring is in `createUI()` in `js/ui.js`.
-- Overlay visibility flags live in `state.showGrid` and `state.showAltAzGrid` in `js/app.js`, then flow through `controller.setGridVisible()` / `controller.setAltAzGridVisible()` into `js/renderer.js`.
-- Both overlays are drawn onto the shared 2D overlay canvas `#sky-grid` in `js/renderer.js`.
-- The Alt/Az grid uses the observer horizon basis derived from `skyState.observer.zenithWorld`, so `frame()` updates observer state whenever horizon rendering or the Alt/Az overlay needs it, including All-sky mode.
 
 ## View modes
 
@@ -72,15 +64,13 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - `frame()` in `js/app.js` checks `skyState.needsAltUpdate` before rendering
 - `needsAltUpdate` is set to `true` by: mode change, location change, time change, catalog load
 - A 10-second `setInterval` advances `skyState.observer.utcMs` to `Date.now()` unless `skyState.timeLocked` is set (live checkbox in UI)
-
-**Preserving viewport alt/az across time changes (Local mode):**
+,**Preserving viewport alt/az across time changes (Local mode):**
 - When time changes (`setObserverTime` or the 10-s interval), the current center alt/az is captured via `fwdToAltAz` (using the old zenith) and stored in `skyState.savedAlt/savedAz`, with `skyState.preserveAltAz = true`.
 - In `frame()`, immediately after `updateObserver` delivers the new zenith, if `preserveAltAz` is set the camera is re-oriented to the saved alt/az via `lookAtAltAz`, then the flag is cleared.
 - Location changes and mode switches do NOT set the flag, so those keep their existing reset-to-0/0 behaviour.
 
-## Git
-
-- Do not stage, commit, push, or perform any other git operations. The user handles all version control manually.
+ `appendStar()`, `removeAt()` in `js/renderer.js`
+- Form/model conversion: `onFormInput()` and `refreshSelection()` in `js/ui.js`
 
 ## Validation
 

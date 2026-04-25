@@ -2,7 +2,7 @@
 // (from Vmag). A single draw call renders all stars; an extra call renders a
 // selection ring on top.
 
-import { add, cross, ndcToPixel, normalize, project, scale, sphereDir, sub } from './camera.js';
+import { ndcToPixel, project, sphereDir } from './camera.js';
 
 const DEG = Math.PI / 180;
 const GRID_RA_STEP = 30 * DEG;
@@ -17,15 +17,6 @@ const GRID_LABELS = [
 const GRID_LINE_COLOR = 'rgba(126, 150, 182, 0.24)';
 const GRID_EQUATOR_COLOR = 'rgba(146, 172, 206, 0.34)';
 const GRID_TEXT_COLOR = 'rgba(204, 214, 230, 0.72)';
-const ALTAZ_LINE_COLOR = 'rgba(186, 164, 112, 0.26)';
-const ALTAZ_HORIZON_COLOR = 'rgba(224, 194, 132, 0.42)';
-const ALTAZ_TEXT_COLOR = 'rgba(237, 223, 178, 0.76)';
-const ALTAZ_CARDINAL_LABELS = [
-	{ text: 'N', az: 0 },
-	{ text: 'E', az: 90 * DEG },
-	{ text: 'S', az: 180 * DEG },
-	{ text: 'W', az: 270 * DEG },
-];
 const STAR_POINT_SIZE = 2.0;
 
 const STAR_VS = `#version 300 es
@@ -282,7 +273,6 @@ export function createRenderer(canvas, overlayCanvas) {
 		brightness: 1.0,
 		pointSize: STAR_POINT_SIZE,
 		gridVisible: false,
-		altAzGridVisible: false,
 		overlayScale: 1,
 		horizonMode: 0,
 		dimFactor: 0.18,
@@ -418,11 +408,6 @@ export function setGridVisible(r, visible) {
 }
 
 
-export function setAltAzGridVisible(r, visible) {
-	r.altAzGridVisible = !!visible;
-}
-
-
 export function setHorizonMode(r, mode, dimFactor) {
 	r.horizonMode = mode;
 	if (dimFactor !== undefined) r.dimFactor = dimFactor;
@@ -473,34 +458,6 @@ function projectGridPoint(camera, ra, dec) {
 }
 
 
-function projectWorldPoint(camera, worldDir) {
-	const p = project(camera, worldDir);
-	if (!Number.isFinite(p.nx) || !Number.isFinite(p.ny) || p.zc < -0.18) return null;
-	const [px, py] = ndcToPixel(camera, p.nx, p.ny);
-	const pad = 96;
-	if (px < -pad || px > camera.width + pad || py < -pad || py > camera.height + pad) return null;
-	return [px, py];
-}
-
-
-function horizonBasis(zenith) {
-	const worldNorth = [0, 0, 1];
-	let north = normalize(sub(worldNorth, scale(zenith, zenith[2])));
-	if (!isFinite(north[0])) north = [1, 0, 0];
-	const east = normalize(cross(zenith, north));
-	return { north, east };
-}
-
-
-function altAzWorldDir(zenith, north, east, alt, az) {
-	const ca = Math.cos(alt);
-	const sa = Math.sin(alt);
-	const cz = Math.cos(az);
-	const sz = Math.sin(az);
-	return normalize(add(add(scale(north, ca * cz), scale(east, ca * sz)), scale(zenith, sa)));
-}
-
-
 function strokeGridCurve(ctx, camera, pointAt, start, end, step) {
 	ctx.beginPath();
 	let segmentOpen = false;
@@ -544,101 +501,24 @@ function drawGridLabels(r, camera) {
 }
 
 
-function strokeAltAzCurve(ctx, camera, pointAt, start, end, step) {
-	ctx.beginPath();
-	let segmentOpen = false;
-	for (let t = start; t <= end + step * 0.5; t += step) {
-		const worldDir = pointAt(Math.min(t, end));
-		const pixel = projectWorldPoint(camera, worldDir);
-		if (!pixel) {
-			segmentOpen = false;
-			continue;
-		}
-		if (!segmentOpen) {
-			ctx.moveTo(pixel[0], pixel[1]);
-			segmentOpen = true;
-		}
-		else {
-			ctx.lineTo(pixel[0], pixel[1]);
-		}
-	}
-	ctx.stroke();
-}
-
-
-function drawAltAzLabels(r, camera, zenith, north, east) {
-	const ctx = r.overlayCtx;
-	ctx.font = '11px system-ui, sans-serif';
-	ctx.textAlign = 'center';
-	ctx.textBaseline = 'middle';
-	ctx.fillStyle = ALTAZ_TEXT_COLOR;
-	ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-	ctx.shadowBlur = 6;
-
-	for (const label of ALTAZ_CARDINAL_LABELS) {
-		const worldDir = altAzWorldDir(zenith, north, east, 0, label.az);
-		const pixel = projectWorldPoint(camera, worldDir);
-		if (!pixel) continue;
-		const x = Math.max(20, Math.min(camera.width - 20, pixel[0]));
-		const y = Math.max(14, Math.min(camera.height - 14, pixel[1] - 10));
-		ctx.fillText(label.text, x, y);
-	}
-
-	ctx.shadowBlur = 0;
-}
-
-
-function drawAltAzOverlay(r, camera) {
-	if (!r.altAzGridVisible || !r.zenith) return;
-
-	const ctx = r.overlayCtx;
-	const { north, east } = horizonBasis(r.zenith);
-
-	ctx.lineWidth = 1;
-	ctx.strokeStyle = ALTAZ_LINE_COLOR;
-	for (let az = 0; az < 2 * Math.PI - GRID_RA_STEP * 0.5; az += GRID_RA_STEP) {
-		strokeAltAzCurve(ctx, camera,
-			(alt) => altAzWorldDir(r.zenith, north, east, alt, az),
-			-Math.PI / 2,
-			Math.PI / 2,
-			GRID_SAMPLE_STEP);
-	}
-
-	for (let alt = -60 * DEG; alt <= 60 * DEG + GRID_DEC_STEP * 0.5; alt += GRID_DEC_STEP) {
-		ctx.strokeStyle = Math.abs(alt) < 1e-6 ? ALTAZ_HORIZON_COLOR : ALTAZ_LINE_COLOR;
-		strokeAltAzCurve(ctx, camera,
-			(az) => altAzWorldDir(r.zenith, north, east, alt, az),
-			0,
-			2 * Math.PI,
-			GRID_SAMPLE_STEP);
-	}
-
-	drawAltAzLabels(r, camera, r.zenith, north, east);
-}
-
-
 function drawGridOverlay(r, camera) {
 	const ctx = r.overlayCtx;
 	ctx.setTransform(r.overlayScale, 0, 0, r.overlayScale, 0, 0);
 	ctx.clearRect(0, 0, camera.width, camera.height);
-	if (!r.gridVisible && !r.altAzGridVisible) return;
+	if (!r.gridVisible) return;
 
-	if (r.gridVisible) {
-		ctx.lineWidth = 1;
-		ctx.strokeStyle = GRID_LINE_COLOR;
-		for (let ra = 0; ra < 2 * Math.PI - GRID_RA_STEP * 0.5; ra += GRID_RA_STEP) {
-			strokeGridCurve(ctx, camera, (dec) => [ra, dec], -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
-		}
-
-		for (let dec = -60 * DEG; dec <= 60 * DEG + GRID_DEC_STEP * 0.5; dec += GRID_DEC_STEP) {
-			ctx.strokeStyle = Math.abs(dec) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
-			strokeGridCurve(ctx, camera, (ra) => [ra, dec], 0, 2 * Math.PI, GRID_SAMPLE_STEP);
-		}
-
-		drawGridLabels(r, camera);
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = GRID_LINE_COLOR;
+	for (let ra = 0; ra < 2 * Math.PI - GRID_RA_STEP * 0.5; ra += GRID_RA_STEP) {
+		strokeGridCurve(ctx, camera, (dec) => [ra, dec], -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
 	}
 
-	drawAltAzOverlay(r, camera);
+	for (let dec = -60 * DEG; dec <= 60 * DEG + GRID_DEC_STEP * 0.5; dec += GRID_DEC_STEP) {
+		ctx.strokeStyle = Math.abs(dec) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
+		strokeGridCurve(ctx, camera, (ra) => [ra, dec], 0, 2 * Math.PI, GRID_SAMPLE_STEP);
+	}
+
+	drawGridLabels(r, camera);
 }
 
 
