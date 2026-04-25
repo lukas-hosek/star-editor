@@ -271,14 +271,6 @@ main {
   padding: 12px 16px 16px;
 }
 
-.sky-heading {
-  margin: 0 0 10px;
-  color: var(--accent-2);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 #sky-mode-toggle {
   display: flex;
   border: 1px solid var(--border);
