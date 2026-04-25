@@ -10,7 +10,7 @@ import {
 } from './renderer.js';
 import {
 	createObserver, updateObserver, computeAltitudes,
-	DEFAULT_PRESETS, loadUserPresets, saveUserPresets,
+	loadUserPresets, saveUserPresets,
 } from './sky.js';
 import { pickStar, pixelToRADec } from './picking.js';
 import { createUI } from './ui.js';

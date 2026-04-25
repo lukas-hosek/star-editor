@@ -33,8 +33,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 - Preserve byte-level round-tripping where possible. `js/catalog.js` intentionally keeps `_raw` for untouched records.
 - Treat `ybsc5.readme` as the authoritative field-layout reference before changing parse/serialize offsets.
-- Do not introduce a Node.js-based verification path. The user does- **When adding any new feature, update this file.** Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
- not have Node installed and does not intend to install it.
+- Do not introduce a Node.js-based verification path. The user does not have Node installed and does not intend to install it.
+- When adding any new feature, update this file. Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
 - Prefer minimal browser-manual verification notes in final responses.
 
 ## Useful anchors
@@ -57,6 +57,8 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 **Local** (`mode: 'local'`): Stars below the horizon are fully culled (shader checks `uHorizonMode == 2 && aAlt < 0.0`). Camera is constrained: `camera.up` always points toward the zenith, so pan is pure azimuth/altitude with no roll. Pan in Local mode is implemented by a direct alt/az delta: on RMB mousedown the pixel position and current center alt/az are captured (via `fwdToAltAz()` in `js/camera.js`); each mousemove computes `(dx, dy)` from the start pixel, converts to angle deltas using `fov / (height/2)` rad/px, and calls `lookAtAltAz()` with the new values. This avoids the degeneracies of the sphere-drag approach. Entering Local mode snaps the camera to `alt=0, az=0` via `lookAtAltAz()` in `js/camera.js`. Picking also skips below-horizon stars (optional `altitudes` param in `pickStar()`).
 
 **Observer state** (`skyState.observer` in `js/app.js`): holds `lat`, `lon`, `utcMs`, and derived `lst` + `zenithWorld`. Updated by `updateObserver()` from `js/sky.js` before each frame that needs altitudes. Location/time UI lives in `#sky-section` at the bottom of the side panel (always visible, pinned with flex layout). User presets are stored in `localStorage` via `loadUserPresets` / `saveUserPresets` in `js/sky.js`.
+
+**Sky location UI** (`SkyLocationManager` in `js/ui.js`): owns the location preset dropdown, latitude/longitude inputs, and startup geolocation. On startup it first syncs the dropdown selection to the current observer coordinates so the default Prague observer also selects Prague in the menu. It then attempts a one-shot browser geolocation lookup; on success a transient `Local Position` entry is inserted at the top of the preset dropdown and applied unless the user already changed the location controls. Manual lat/lon edits still force the dropdown to `Custom`, while explicit preset selections and saved presets continue to route through `controller.setObserverLocation()`.
 
 **Ground plane** (`js/renderer.js`): An additional fullscreen-quad draw call uses `GROUND_VS`/`GROUND_FS` to render a dark ground plane below the horizon in Local mode. The fragment shader unprojects each pixel to a world direction and discards fragments where `dot(worldDir, uZenith) > 0` (above horizon). Drawn only when `horizonMode == 2` and the zenith uniform `uZenith` is set via `setZenith()`.
 

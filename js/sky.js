@@ -1,16 +1,16 @@
-// Astronomical math: sidereal time, altitude computation, observer state, presets.
+// Astronomical math: sidereal time, altitude computation, observer state, and location presets.
 
 const DEG = Math.PI / 180;
 
-export const DEFAULT_PRESETS = [
+export const LOCATION_PRESETS = [
 	{ name: 'Greenwich', lat: 51.4769 * DEG, lon: 0.0005 * DEG },
 	{ name: 'Prague', lat: 50.0755 * DEG, lon: 14.4378 * DEG },
 ];
 
 export function createObserver() {
 	return {
-		lat: DEFAULT_PRESETS[1].lat,
-		lon: DEFAULT_PRESETS[1].lon,
+		lat: LOCATION_PRESETS[1].lat,
+		lon: LOCATION_PRESETS[1].lon,
 		utcMs: Date.now(),
 		lst: 0,               // derived by updateObserver()
 		zenithWorld: [1, 0, 0], // derived by updateObserver()

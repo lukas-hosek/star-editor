@@ -1,10 +1,27 @@
 // DOM-side: toolbar wiring, side-panel form, file I/O via File System Access.
 // All DOM lookups happen once, in createUI.
 
-import { DEFAULT_PRESETS } from './sky.js';
+import { LOCATION_PRESETS } from './sky.js';
 
 const HRS_PER_RAD = 12 / Math.PI;
 const DEG_PER_RAD = 180 / Math.PI;
+const PRESET_MATCH_EPSILON = 1e-5;
+
+
+function angularDistance(a, b)
+{
+	let d = Math.abs(a - b) % (2 * Math.PI);
+	if (d > Math.PI) d = 2 * Math.PI - d;
+	return d;
+}
+
+
+function coordsMatch(aLat, aLon, bLat, bLon)
+{
+	return Math.abs(aLat - bLat) <= PRESET_MATCH_EPSILON &&
+		angularDistance(aLon, bLon) <= PRESET_MATCH_EPSILON;
+}
+
 
 function numOr(s, fb) {
 	if (s === '' || s === null || s === undefined) return fb;
@@ -357,22 +374,210 @@ export function createUI(controller) {
 	}
 
 	// ---------- Sky section ----------
-
-	function populatePresets() {
-		const sel = el['sky-preset'];
-		sel.innerHTML = '';
-		const allPresets = [...DEFAULT_PRESETS, ...controller.skyState.userPresets];
-		for (const p of allPresets) {
-			const opt = document.createElement('option');
-			opt.value = JSON.stringify({ lat: p.lat, lon: p.lon });
-			opt.textContent = p.name;
-			sel.appendChild(opt);
+	class SkyLocationManager
+	{
+		constructor()
+		{
+			this.localPreset = null;
+			this.userChangedLocation = false;
+			this.requestedGeolocation = false;
 		}
-		const custom = document.createElement('option');
-		custom.value = 'custom';
-		custom.textContent = '— Custom —';
-		sel.appendChild(custom);
+
+
+		getPresetEntries()
+		{
+			const entries = [];
+			if (this.localPreset)
+			{
+				entries.push({
+					value: 'local',
+					name: 'Local Position',
+					lat: this.localPreset.lat,
+					lon: this.localPreset.lon,
+				});
+			}
+			for (let i = 0; i < LOCATION_PRESETS.length; i++)
+			{
+				const preset = LOCATION_PRESETS[i];
+				entries.push({
+					value: `default:${i}`,
+					name: preset.name,
+					lat: preset.lat,
+					lon: preset.lon,
+				});
+			}
+			for (let i = 0; i < controller.skyState.userPresets.length; i++)
+			{
+				const preset = controller.skyState.userPresets[i];
+				entries.push({
+					value: `user:${i}`,
+					name: preset.name,
+					lat: preset.lat,
+					lon: preset.lon,
+				});
+			}
+			return entries;
+		}
+
+
+		getEntryByValue(value)
+		{
+			for (const entry of this.getPresetEntries())
+			{
+				if (entry.value === value)
+				{
+					return entry;
+				}
+			}
+			return null;
+		}
+
+
+		setInputValues(lat, lon)
+		{
+			el['sky-lat'].value = (lat * DEG_PER_RAD).toFixed(4);
+			el['sky-lon'].value = (lon * DEG_PER_RAD).toFixed(4);
+		}
+
+
+		populatePresets(selectedValue)
+		{
+			const sel = el['sky-preset'];
+			const desiredValue = selectedValue === undefined ? sel.value : selectedValue;
+			sel.innerHTML = '';
+			for (const entry of this.getPresetEntries())
+			{
+				const opt = document.createElement('option');
+				opt.value = entry.value;
+				opt.textContent = entry.name;
+				sel.appendChild(opt);
+			}
+			const custom = document.createElement('option');
+			custom.value = 'custom';
+			custom.textContent = '— Custom —';
+			sel.appendChild(custom);
+			if (desiredValue === 'custom' || this.getEntryByValue(desiredValue))
+			{
+				sel.value = desiredValue;
+			}
+			else
+			{
+				sel.value = 'custom';
+			}
+		}
+
+
+		syncSelectionToObserver()
+		{
+			const obs = controller.skyState.observer;
+			for (const entry of this.getPresetEntries())
+			{
+				if (coordsMatch(obs.lat, obs.lon, entry.lat, entry.lon))
+				{
+					el['sky-preset'].value = entry.value;
+					return;
+				}
+			}
+			el['sky-preset'].value = 'custom';
+		}
+
+
+		syncFromObserver()
+		{
+			const obs = controller.skyState.observer;
+			this.setInputValues(obs.lat, obs.lon);
+			this.syncSelectionToObserver();
+		}
+
+
+		applyPreset(value)
+		{
+			const entry = this.getEntryByValue(value);
+			if (!entry)
+			{
+				return;
+			}
+			this.userChangedLocation = true;
+			this.setInputValues(entry.lat, entry.lon);
+			controller.setObserverLocation(entry.lat, entry.lon);
+			el['sky-preset'].value = value;
+		}
+
+
+		applyManualInput()
+		{
+			const lat = parseFloat(el['sky-lat'].value) / DEG_PER_RAD;
+			const lon = parseFloat(el['sky-lon'].value) / DEG_PER_RAD;
+			if (!isFinite(lat) || !isFinite(lon))
+			{
+				return;
+			}
+			this.userChangedLocation = true;
+			controller.setObserverLocation(lat, lon);
+			el['sky-preset'].value = 'custom';
+		}
+
+
+		saveCurrentPreset(name)
+		{
+			this.userChangedLocation = true;
+			controller.saveLocationPreset(name);
+			this.populatePresets(`user:${controller.skyState.userPresets.length - 1}`);
+		}
+
+
+		applyGeolocation(position)
+		{
+			this.localPreset = {
+				lat: position.coords.latitude / DEG_PER_RAD,
+				lon: position.coords.longitude / DEG_PER_RAD,
+			};
+			this.populatePresets(el['sky-preset'].value || 'custom');
+			if (this.userChangedLocation)
+			{
+				return;
+			}
+			controller.setObserverLocation(this.localPreset.lat, this.localPreset.lon);
+			this.syncFromObserver();
+		}
+
+
+		requestGeolocation()
+		{
+			if (this.requestedGeolocation)
+			{
+				return;
+			}
+			this.requestedGeolocation = true;
+			if (!('geolocation' in navigator))
+			{
+				return;
+			}
+			navigator.geolocation.getCurrentPosition(
+				(position) =>
+				{
+					this.applyGeolocation(position);
+				},
+				() =>
+				{
+				},
+				{
+					timeout: 5000,
+					maximumAge: 300000,
+				}
+			);
+		}
+
+
+		initialize()
+		{
+			this.populatePresets('custom');
+			this.syncFromObserver();
+			this.requestGeolocation();
+		}
 	}
+
+	const skyLocationManager = new SkyLocationManager();
 
 	function syncSkyTime() {
 		const obs = controller.skyState.observer;
@@ -400,19 +605,12 @@ export function createUI(controller) {
 	el['sky-preset'].addEventListener('change', () => {
 		const v = el['sky-preset'].value;
 		if (v === 'custom') return;
-		const { lat, lon } = JSON.parse(v);
-		el['sky-lat'].value = (lat * DEG_PER_RAD).toFixed(4);
-		el['sky-lon'].value = (lon * DEG_PER_RAD).toFixed(4);
-		controller.setObserverLocation(lat, lon);
+		skyLocationManager.applyPreset(v);
 	});
 
 	// Manual lat/lon
 	function onLatLonInput() {
-		const lat = parseFloat(el['sky-lat'].value) / DEG_PER_RAD;
-		const lon = parseFloat(el['sky-lon'].value) / DEG_PER_RAD;
-		if (!isFinite(lat) || !isFinite(lon)) return;
-		el['sky-preset'].value = 'custom';
-		controller.setObserverLocation(lat, lon);
+		skyLocationManager.applyManualInput();
 	}
 	el['sky-lat'].addEventListener('input', onLatLonInput);
 	el['sky-lon'].addEventListener('input', onLatLonInput);
@@ -421,14 +619,7 @@ export function createUI(controller) {
 	el['btn-save-preset'].addEventListener('click', () => {
 		const name = prompt('Preset name:');
 		if (!name || !name.trim()) return;
-		controller.saveLocationPreset(name.trim());
-		populatePresets();
-		// Select the newly added preset
-		const sel = el['sky-preset'];
-		sel.value = JSON.stringify({
-			lat: controller.skyState.observer.lat,
-			lon: controller.skyState.observer.lon,
-		});
+		skyLocationManager.saveCurrentPreset(name.trim());
 	});
 
 	// Date picker
@@ -466,10 +657,7 @@ export function createUI(controller) {
 	});
 
 	// Initialize sky section from current observer state
-	populatePresets();
-	const obs0 = controller.skyState.observer;
-	el['sky-lat'].value = (obs0.lat * DEG_PER_RAD).toFixed(4);
-	el['sky-lon'].value = (obs0.lon * DEG_PER_RAD).toFixed(4);
+	skyLocationManager.initialize();
 	syncSkyTime();
 
 	return {
