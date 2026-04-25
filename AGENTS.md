@@ -10,7 +10,9 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Only branch outward after identifying which slice is responsible:
   - parsing and serialization: `js/catalog.js`
   - camera math and sky projection: `js/camera.js`
-  - rendering and GPU buffers: `js/renderer.js`
+  - renderer draw passes and shader setup: `js/renderer.js`
+  - star GPU buffers and incremental sync: `js/renderer-star-buffer.js`
+  - projected grid overlays and labels: `js/renderer-overlay.js`
   - picking and pixel-to-sky conversion: `js/picking.js`
   - editor/catalog actions and selection state: `js/app-editor-actions.js`
   - resize, render loop, and live observer updates: `js/app-runtime.js`
@@ -52,9 +54,17 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Runtime scheduling: `startAppRuntime()` in `js/app-runtime.js`
 - Dirty tracking: `state.isDirty` in `js/app.js` plus `markSaved()` and `onStarEdited()` in `js/app-editor-actions.js`
 - Derived star visuals: `refreshStarPhotometry()` in `js/catalog.js`
-- GPU full sync vs incremental sync: `syncAll()`, `syncOne()`
+- GPU full sync vs incremental sync: `syncAll()`, `syncOne()` in `js/renderer-star-buffer.js` (re-exported by `js/renderer.js`)
+- Shared local-horizon helpers: `localHorizonBasis()` and `altAzDir()` in `js/camera.js`
 - Sky/observer state: `skyState` in `js/app.js`
 - Sidereal time and horizon math: `js/sky.js`
+
+## Renderer split
+
+- `js/renderer.js` now owns renderer composition: shader program creation, ground/ring/star draw passes, and the exported renderer API.
+- `js/renderer-star-buffer.js` owns star attribute buffer allocation plus `syncAll()`, `syncOne()`, `appendStar()`, `removeAt()`, and `setAltitudes()`.
+- `js/renderer-overlay.js` owns the RA/Dec and Alt/Az grid projection/drawing helpers used by `drawGridOverlay()`, while reusing `localHorizonBasis()` / `altAzDir()` from `js/camera.js`.
+- `createRenderer()` in `js/renderer.js` builds the shared renderer state, delegates star-buffer setup to `createStarBuffers()`, and `render()` delegates overlay drawing to `drawGridOverlay()` after the WebGL passes finish.
 
 ## View modes
 
@@ -75,13 +85,13 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 ## Grid overlays
 
 - Toolbar buttons `#btn-grid` and `#btn-altaz-grid` toggle independent overlays on the shared `#sky-grid` canvas.
-- The RA/Dec grid is drawn in `drawRADecGridOverlay()` in `js/renderer.js`.
-- The Alt/Az grid is drawn in `drawAltAzGridOverlay()` in `js/renderer.js`, using the same zenith-based north/east basis as `lookAtAltAz()` and `fwdToAltAz()` in `js/camera.js`. Cardinal labels `N`, `E`, `S`, `W` are placed at projected horizon points for azimuth 0/90/180/270 and nudged outward from screen center.
-- Visibility is owned by `state.showGrid` and `state.showAltAzGrid` in `js/app.js`, with button state mirrored by `js/ui.js`.
+- The RA/Dec grid is drawn in `drawRADecGridOverlay()` in `js/renderer-overlay.js`.
+- The Alt/Az grid is drawn in `drawAltAzGridOverlay()` in `js/renderer-overlay.js`, using the same zenith-based north/east basis as `lookAtAltAz()` and `fwdToAltAz()` in `js/camera.js`. Cardinal labels `N`, `E`, `S`, `W` are placed at projected horizon points for azimuth 0/90/180/270 and nudged outward from screen center.
+- Visibility is owned by `state.showRADecGrid` and `state.showAltAzGrid` in `js/app.js`, with button state mirrored by `js/ui.js`.
 - Even in `mode: 'allsky'`, enabling the Alt/Az grid forces observer updates so location/time changes and live time keep the overlay in sync.
 
 **Control flow for altitude updates:**
-- `frame()` in `js/app.js` checks `skyState.needsAltUpdate` before rendering
+- `frame()` in `js/app-runtime.js` checks `skyState.needsAltUpdate` before rendering
 - `needsAltUpdate` is set to `true` by: mode change, location change, time change, catalog load
 - A 10-second `setInterval` advances `skyState.observer.utcMs` to `Date.now()` unless `skyState.timeLocked` is set (live checkbox in UI)
 ,**Preserving viewport alt/az across time changes (Local mode):**

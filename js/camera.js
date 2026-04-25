@@ -71,6 +71,33 @@ export function dirToRADec(v) {
 }
 
 
+export function localHorizonBasis(zenith) {
+	const Z = [0, 0, 1];
+	let northLocal = sub(Z, scale(zenith, zenith[2]));
+	const northLen = Math.hypot(northLocal[0], northLocal[1], northLocal[2]);
+	if (northLen < 1e-6) {
+		northLocal = [1, 0, 0];
+	}
+	else {
+		northLocal = scale(northLocal, 1 / northLen);
+	}
+	const eastLocal = normalize(cross(zenith, northLocal));
+	return { northLocal, eastLocal };
+}
+
+
+export function altAzDir(alt, az, zenith, basis = localHorizonBasis(zenith)) {
+	const { northLocal, eastLocal } = basis;
+	const ca = Math.cos(alt);
+	const sa = Math.sin(alt);
+	const cz = Math.cos(az);
+	const sz = Math.sin(az);
+	return normalize(add(
+		add(scale(northLocal, ca * cz), scale(eastLocal, ca * sz)),
+		scale(zenith, sa)));
+}
+
+
 // ---------- Rodrigues rotation of a vector ----------
 // Rotates v by the rotation that takes unit vector a to unit vector b.
 function rotateVecFromAtoB(v, a, b) {
@@ -196,14 +223,9 @@ export function lookAt(cam, ra, dec) {
 // alt: altitude in radians, az: azimuth in radians (clockwise from North).
 // zenith: world-space unit vector pointing to the observer's zenith.
 export function lookAtAltAz(cam, alt, az, zenith) {
-	// Project world-Z (celestial north pole) onto the plane perpendicular to zenith
-	// to get the "north" direction in the horizon frame.
-	const Z = [0, 0, 1];
-	let northLocal = normalize(sub(Z, scale(zenith, zenith[2])));
-	if (!isFinite(northLocal[0])) northLocal = [1, 0, 0]; // degenerate at geographic pole
-	const eastLocal = normalize(cross(zenith, northLocal));
-	const ca = Math.cos(alt), sa = Math.sin(alt), cz = Math.cos(az), sz = Math.sin(az);
-	cam.fwd = normalize(add(add(scale(northLocal, ca * cz), scale(eastLocal, ca * sz)), scale(zenith, sa)));
+	const basis = localHorizonBasis(zenith);
+	const { eastLocal } = basis;
+	cam.fwd = altAzDir(alt, az, zenith, basis);
 	const rawRight = cross(zenith, cam.fwd);
 	const rLen = Math.hypot(rawRight[0], rawRight[1], rawRight[2]);
 	cam.right = rLen < 1e-6 ? eastLocal : scale(rawRight, 1 / rLen);
@@ -268,10 +290,7 @@ export function panToConstrained(cam, pixelX, pixelY, wFrom, zenith) {
 // alt ∈ [-π/2, π/2], az clockwise from North (matching lookAtAltAz).
 export function fwdToAltAz(cam, zenith) {
 	const alt = Math.asin(Math.max(-1, Math.min(1, dot(cam.fwd, zenith))));
-	const Z = [0, 0, 1];
-	let northLocal = normalize(sub(Z, scale(zenith, zenith[2])));
-	if (!isFinite(northLocal[0])) northLocal = [1, 0, 0];
-	const eastLocal = normalize(cross(zenith, northLocal));
+	const { northLocal, eastLocal } = localHorizonBasis(zenith);
 	return {
 		alt,
 		az: Math.atan2(dot(cam.fwd, eastLocal), dot(cam.fwd, northLocal)),
