@@ -29,9 +29,9 @@ export function createEditorActions(options)
 	function updateStatus()
 	{
 		const ui = getUI();
-		const n = state.stars.length;
+		const starCount = state.stars.length;
 		const dirty = state.isDirty ? ' •' : '';
-		ui.setStatus(n > 0 ? `${n} stars${dirty}` : 'No catalog loaded');
+		ui.setStatus(starCount > 0 ? `${starCount} stars${dirty}` : 'No catalog loaded');
 	}
 
 
@@ -67,19 +67,19 @@ export function createEditorActions(options)
 	}
 
 
-	function setAddMode(on)
+	function setAddMode(enabled)
 	{
 		const ui = getUI();
-		state.addMode = !!on;
+		state.addMode = !!enabled;
 		ui.setAddMode(state.addMode);
 		canvas.classList.toggle('adding', state.addMode);
 	}
 
 
-	function setAllowMoving(on)
+	function setAllowMoving(enabled)
 	{
 		const ui = getUI();
-		state.allowMoving = !!on;
+		state.allowMoving = !!enabled;
 		ui.setAllowMoving(state.allowMoving);
 		if (!state.allowMoving)
 		{
@@ -91,8 +91,8 @@ export function createEditorActions(options)
 	function deleteSelected()
 	{
 		if (state.selectedIndex < 0) return;
-		const s = state.stars[state.selectedIndex];
-		if (!window.confirm(`Delete HR ${s.HR}?`)) return;
+		const selectedStar = state.stars[state.selectedIndex];
+		if (!window.confirm(`Delete HR ${selectedStar.HR}?`)) return;
 		deleteStarAt(state.selectedIndex);
 	}
 
@@ -104,20 +104,20 @@ export function createEditorActions(options)
 	}
 
 
-	function setRADecGridVisibleState(on)
+	function setRADecGridVisibleState(visible)
 	{
 		const ui = getUI();
-		state.showRADecGrid = !!on;
+		state.showRADecGrid = !!visible;
 		setRADecGridVisible(renderer, state.showRADecGrid);
 		ui.setRADecGridVisible(state.showRADecGrid);
 		requestRender();
 	}
 
 
-	function setAltAzGridVisibleState(on)
+	function setAltAzGridVisibleState(visible)
 	{
 		const ui = getUI();
-		state.showAltAzGrid = !!on;
+		state.showAltAzGrid = !!visible;
 		setAltAzGridVisible(renderer, state.showAltAzGrid);
 		ui.setAltAzGridVisible(state.showAltAzGrid);
 		if (state.showAltAzGrid)
@@ -135,23 +135,23 @@ export function createEditorActions(options)
 
 	function onStarEdited()
 	{
-		const i = state.selectedIndex;
-		if (i < 0) return;
-		const s = state.stars[i];
-		s._edited = true;
-		refreshStarPhotometry(s);
-		syncOne(renderer, i, s);
+		const selectedIndex = state.selectedIndex;
+		if (selectedIndex < 0) return;
+		const selectedStar = state.stars[selectedIndex];
+		selectedStar._edited = true;
+		refreshStarPhotometry(selectedStar);
+		syncOne(renderer, selectedIndex, selectedStar);
 		state.isDirty = true;
 		updateStatus();
 		requestRender();
 	}
 
 
-	function selectStar(i)
+	function selectStar(selectedIndex)
 	{
 		const ui = getUI();
-		state.selectedIndex = i;
-		if (i >= 0) ui.showSelection(state.stars[i]);
+		state.selectedIndex = selectedIndex;
+		if (selectedIndex >= 0) ui.showSelection(state.stars[selectedIndex]);
 		else ui.showNoSelection();
 		requestRender();
 	}
@@ -161,7 +161,7 @@ export function createEditorActions(options)
 	{
 		const ui = getUI();
 		const { ra, dec } = pixelToRADec(camera, px, py);
-		const nextHR = state.stars.reduce((m, s) => Math.max(m, s.HR || 0), 0) + 1;
+		const nextHR = state.stars.reduce((highestHR, star) => Math.max(highestHR, star.HR || 0), 0) + 1;
 		const star = makeNewStar({ ra, dec, HR: nextHR });
 		state.stars.push(star);
 		appendStar(renderer, star);
@@ -174,14 +174,14 @@ export function createEditorActions(options)
 	}
 
 
-	function deleteStarAt(i)
+	function deleteStarAt(index)
 	{
 		const ui = getUI();
-		if (i < 0 || i >= state.stars.length) return;
-		const last = state.stars.length - 1;
-		if (i !== last) state.stars[i] = state.stars[last];
+		if (index < 0 || index >= state.stars.length) return;
+		const lastIndex = state.stars.length - 1;
+		if (index !== lastIndex) state.stars[index] = state.stars[lastIndex];
 		state.stars.pop();
-		removeAt(renderer, i, state.stars);
+		removeAt(renderer, index, state.stars);
 		state.isDirty = true;
 		state.selectedIndex = -1;
 		ui.showNoSelection();

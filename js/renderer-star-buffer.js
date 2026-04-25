@@ -45,120 +45,120 @@ export function createStarBuffers(gl, starProg)
 }
 
 
-function ensureCapacity(r, n)
+function ensureCapacity(renderer, requiredCount)
 {
-	if (n <= r.capacity) return;
-	let cap = Math.max(16, r.capacity);
-	while (cap < n) cap *= 2;
-	const oldPos = r.posCPU;
-	const oldCol = r.colCPU;
-	const oldFlx = r.fluxCPU;
-	const oldAlt = r.altCPU;
-	r.posCPU = new Float32Array(cap * 3);
-	r.colCPU = new Float32Array(cap * 3);
-	r.fluxCPU = new Float32Array(cap);
-	r.altCPU = new Float32Array(cap);
-	r.posCPU.set(oldPos);
-	r.colCPU.set(oldCol);
-	r.fluxCPU.set(oldFlx);
-	r.altCPU.set(oldAlt);
-	r.capacity = cap;
-	const { gl } = r;
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.posBuf);
-	gl.bufferData(gl.ARRAY_BUFFER, r.posCPU.byteLength, gl.DYNAMIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.colBuf);
-	gl.bufferData(gl.ARRAY_BUFFER, r.colCPU.byteLength, gl.DYNAMIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
-	gl.bufferData(gl.ARRAY_BUFFER, r.fluxCPU.byteLength, gl.DYNAMIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.altBuf);
-	gl.bufferData(gl.ARRAY_BUFFER, r.altCPU.byteLength, gl.DYNAMIC_DRAW);
+	if (requiredCount <= renderer.capacity) return;
+	let nextCapacity = Math.max(16, renderer.capacity);
+	while (nextCapacity < requiredCount) nextCapacity *= 2;
+	const oldPositions = renderer.posCPU;
+	const oldColors = renderer.colCPU;
+	const oldFluxes = renderer.fluxCPU;
+	const oldAltitudes = renderer.altCPU;
+	renderer.posCPU = new Float32Array(nextCapacity * 3);
+	renderer.colCPU = new Float32Array(nextCapacity * 3);
+	renderer.fluxCPU = new Float32Array(nextCapacity);
+	renderer.altCPU = new Float32Array(nextCapacity);
+	renderer.posCPU.set(oldPositions);
+	renderer.colCPU.set(oldColors);
+	renderer.fluxCPU.set(oldFluxes);
+	renderer.altCPU.set(oldAltitudes);
+	renderer.capacity = nextCapacity;
+	const { gl } = renderer;
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, renderer.posCPU.byteLength, gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.colBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, renderer.colCPU.byteLength, gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.fluxBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, renderer.fluxCPU.byteLength, gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.altBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, renderer.altCPU.byteLength, gl.DYNAMIC_DRAW);
 }
 
 
-function writeStarAt(r, i, star)
+function writeStarAt(renderer, index, star)
 {
-	const v = sphereDir(star.ra, star.dec);
-	r.posCPU[3 * i] = v[0];
-	r.posCPU[3 * i + 1] = v[1];
-	r.posCPU[3 * i + 2] = v[2];
-	r.colCPU[3 * i] = star.color[0];
-	r.colCPU[3 * i + 1] = star.color[1];
-	r.colCPU[3 * i + 2] = star.color[2];
-	r.fluxCPU[i] = star.flux;
+	const position = sphereDir(star.ra, star.dec);
+	renderer.posCPU[3 * index] = position[0];
+	renderer.posCPU[3 * index + 1] = position[1];
+	renderer.posCPU[3 * index + 2] = position[2];
+	renderer.colCPU[3 * index] = star.color[0];
+	renderer.colCPU[3 * index + 1] = star.color[1];
+	renderer.colCPU[3 * index + 2] = star.color[2];
+	renderer.fluxCPU[index] = star.flux;
 }
 
 
-export function syncAll(r, stars)
+export function syncAll(renderer, stars)
 {
-	const n = stars.length;
-	ensureCapacity(r, n);
-	for (let i = 0; i < n; i++) writeStarAt(r, i, stars[i]);
-	r.count = n;
-	const { gl } = r;
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.posBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, r.posCPU.subarray(0, n * 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.colBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, r.colCPU.subarray(0, n * 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, r.fluxCPU.subarray(0, n));
+	const starCount = stars.length;
+	ensureCapacity(renderer, starCount);
+	for (let index = 0; index < starCount; index++) writeStarAt(renderer, index, stars[index]);
+	renderer.count = starCount;
+	const { gl } = renderer;
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, renderer.posCPU.subarray(0, starCount * 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.colBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, renderer.colCPU.subarray(0, starCount * 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.fluxBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, renderer.fluxCPU.subarray(0, starCount));
 }
 
 
-export function syncOne(r, index, star)
+export function syncOne(renderer, index, star)
 {
-	if (index < 0 || index >= r.count) return;
-	writeStarAt(r, index, star);
-	const { gl } = r;
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.posBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, r.posCPU.subarray(index * 3, index * 3 + 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.colBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, r.colCPU.subarray(index * 3, index * 3 + 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, r.fluxCPU.subarray(index, index + 1));
+	if (index < 0 || index >= renderer.count) return;
+	writeStarAt(renderer, index, star);
+	const { gl } = renderer;
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.posCPU.subarray(index * 3, index * 3 + 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.colBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.colCPU.subarray(index * 3, index * 3 + 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.fluxBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, renderer.fluxCPU.subarray(index, index + 1));
 }
 
 
-export function appendStar(r, star)
+export function appendStar(renderer, star)
 {
-	ensureCapacity(r, r.count + 1);
-	writeStarAt(r, r.count, star);
-	const { gl } = r;
-	const i = r.count;
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.posBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, i * 12, r.posCPU.subarray(i * 3, i * 3 + 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.colBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, i * 12, r.colCPU.subarray(i * 3, i * 3 + 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, i * 4, r.fluxCPU.subarray(i, i + 1));
-	r.count += 1;
+	ensureCapacity(renderer, renderer.count + 1);
+	writeStarAt(renderer, renderer.count, star);
+	const { gl } = renderer;
+	const index = renderer.count;
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.posCPU.subarray(index * 3, index * 3 + 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.colBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.colCPU.subarray(index * 3, index * 3 + 3));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.fluxBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, renderer.fluxCPU.subarray(index, index + 1));
+	renderer.count += 1;
 }
 
 
-export function removeAt(r, index, stars)
+export function removeAt(renderer, index, stars)
 {
-	if (index < 0 || index >= r.count) return;
-	const lastIdx = r.count - 1;
-	if (index !== lastIdx)
+	if (index < 0 || index >= renderer.count) return;
+	const lastIndex = renderer.count - 1;
+	if (index !== lastIndex)
 	{
-		writeStarAt(r, index, stars[index]);
-		const { gl } = r;
-		gl.bindBuffer(gl.ARRAY_BUFFER, r.posBuf);
-		gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, r.posCPU.subarray(index * 3, index * 3 + 3));
-		gl.bindBuffer(gl.ARRAY_BUFFER, r.colBuf);
-		gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, r.colCPU.subarray(index * 3, index * 3 + 3));
-		gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
-		gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, r.fluxCPU.subarray(index, index + 1));
+		writeStarAt(renderer, index, stars[index]);
+		const { gl } = renderer;
+		gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
+		gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.posCPU.subarray(index * 3, index * 3 + 3));
+		gl.bindBuffer(gl.ARRAY_BUFFER, renderer.colBuf);
+		gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.colCPU.subarray(index * 3, index * 3 + 3));
+		gl.bindBuffer(gl.ARRAY_BUFFER, renderer.fluxBuf);
+		gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, renderer.fluxCPU.subarray(index, index + 1));
 	}
-	r.count -= 1;
+	renderer.count -= 1;
 }
 
 
-export function setAltitudes(r, altitudes)
+export function setAltitudes(renderer, altitudes)
 {
-	const n = Math.min(altitudes.length, r.count);
-	if (n === 0) return;
-	r.altCPU.set(altitudes.subarray(0, n));
-	const { gl } = r;
-	gl.bindBuffer(gl.ARRAY_BUFFER, r.altBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, 0, r.altCPU.subarray(0, n));
+	const altitudeCount = Math.min(altitudes.length, renderer.count);
+	if (altitudeCount === 0) return;
+	renderer.altCPU.set(altitudes.subarray(0, altitudeCount));
+	const { gl } = renderer;
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.altBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, renderer.altCPU.subarray(0, altitudeCount));
 }

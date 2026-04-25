@@ -136,53 +136,53 @@ void main() {
 
 function compile(gl, type, src)
 {
-	const sh = gl.createShader(type);
-	gl.shaderSource(sh, src);
-	gl.compileShader(sh);
-	if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS))
+	const shader = gl.createShader(type);
+	gl.shaderSource(shader, src);
+	gl.compileShader(shader);
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
 	{
-		const log = gl.getShaderInfoLog(sh);
-		gl.deleteShader(sh);
+		const log = gl.getShaderInfoLog(shader);
+		gl.deleteShader(shader);
 		throw new Error('Shader compile error: ' + log);
 	}
-	return sh;
+	return shader;
 }
 
 
 function link(gl, vsSrc, fsSrc)
 {
-	const vs = compile(gl, gl.VERTEX_SHADER, vsSrc);
-	const fs = compile(gl, gl.FRAGMENT_SHADER, fsSrc);
-	const prog = gl.createProgram();
-	gl.attachShader(prog, vs);
-	gl.attachShader(prog, fs);
-	gl.linkProgram(prog);
-	if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+	const vertexShader = compile(gl, gl.VERTEX_SHADER, vsSrc);
+	const fragmentShader = compile(gl, gl.FRAGMENT_SHADER, fsSrc);
+	const program = gl.createProgram();
+	gl.attachShader(program, vertexShader);
+	gl.attachShader(program, fragmentShader);
+	gl.linkProgram(program);
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS))
 	{
-		const log = gl.getProgramInfoLog(prog);
-		gl.deleteProgram(prog);
+		const log = gl.getProgramInfoLog(program);
+		gl.deleteProgram(program);
 		throw new Error('Program link error: ' + log);
 	}
-	return prog;
+	return program;
 }
 
 
-function uniforms(gl, prog, names)
+function uniforms(gl, program, names)
 {
-	const u = {};
-	for (const n of names)
+	const uniformLocations = {};
+	for (const name of names)
 	{
-		u[n] = gl.getUniformLocation(prog, n);
+		uniformLocations[name] = gl.getUniformLocation(program, name);
 	}
-	return u;
+	return uniformLocations;
 }
 
 
 function aspectScales(width, height)
 {
 	return width < height
-		? { ax: 1, ay: height / width }
-		: { ax: width / height, ay: 1 };
+		? { aspectX: 1, aspectY: height / width }
+		: { aspectX: width / height, aspectY: 1 };
 }
 
 
@@ -210,9 +210,9 @@ export function createRendererPipeline(gl)
 	const groundVAO = gl.createVertexArray();
 	gl.bindVertexArray(groundVAO);
 	gl.bindBuffer(gl.ARRAY_BUFFER, groundQuadBuf);
-	const aPosLocGround = gl.getAttribLocation(groundProg, 'aPos');
-	gl.enableVertexAttribArray(aPosLocGround);
-	gl.vertexAttribPointer(aPosLocGround, 2, gl.FLOAT, false, 0, 0);
+	const groundPositionLocation = gl.getAttribLocation(groundProg, 'aPos');
+	gl.enableVertexAttribArray(groundPositionLocation);
+	gl.vertexAttribPointer(groundPositionLocation, 2, gl.FLOAT, false, 0, 0);
 	gl.bindVertexArray(null);
 
 	return {
@@ -229,57 +229,57 @@ export function createRendererPipeline(gl)
 }
 
 
-export function drawRenderPipeline(r, camera, selectedStar)
+export function drawRenderPipeline(renderer, camera, selectedStar)
 {
-	const { gl } = r;
+	const { gl } = renderer;
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
-	const tanHalf = Math.tan(camera.fov / 2);
-	const { ax, ay } = aspectScales(camera.width, camera.height);
+	const tanHalfFov = Math.tan(camera.fov / 2);
+	const { aspectX, aspectY } = aspectScales(camera.width, camera.height);
 
-	if (r.horizonMode > 0 && r.zenith)
+	if (renderer.horizonMode > 0 && renderer.zenith)
 	{
-		gl.useProgram(r.groundProg);
-		gl.bindVertexArray(r.groundVAO);
-		gl.uniform3f(r.groundU.uRight, camera.right[0], camera.right[1], camera.right[2]);
-		gl.uniform3f(r.groundU.uUp, camera.up[0], camera.up[1], camera.up[2]);
-		gl.uniform3f(r.groundU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
-		gl.uniform1f(r.groundU.uTanHalfFov, tanHalf);
-		gl.uniform1f(r.groundU.uAspectX, ax);
-		gl.uniform1f(r.groundU.uAspectY, ay);
-		gl.uniform3f(r.groundU.uZenith, r.zenith[0], r.zenith[1], r.zenith[2]);
+		gl.useProgram(renderer.groundProg);
+		gl.bindVertexArray(renderer.groundVAO);
+		gl.uniform3f(renderer.groundU.uRight, camera.right[0], camera.right[1], camera.right[2]);
+		gl.uniform3f(renderer.groundU.uUp, camera.up[0], camera.up[1], camera.up[2]);
+		gl.uniform3f(renderer.groundU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
+		gl.uniform1f(renderer.groundU.uTanHalfFov, tanHalfFov);
+		gl.uniform1f(renderer.groundU.uAspectX, aspectX);
+		gl.uniform1f(renderer.groundU.uAspectY, aspectY);
+		gl.uniform3f(renderer.groundU.uZenith, renderer.zenith[0], renderer.zenith[1], renderer.zenith[2]);
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 		gl.bindVertexArray(null);
 	}
 
-	gl.useProgram(r.starProg);
-	gl.bindVertexArray(r.vao);
-	gl.uniform3f(r.starU.uRight, camera.right[0], camera.right[1], camera.right[2]);
-	gl.uniform3f(r.starU.uUp, camera.up[0], camera.up[1], camera.up[2]);
-	gl.uniform3f(r.starU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
-	gl.uniform1f(r.starU.uTanHalfFov, tanHalf);
-	gl.uniform1f(r.starU.uAspectX, ax);
-	gl.uniform1f(r.starU.uAspectY, ay);
-	gl.uniform1f(r.starU.uBrightness, r.brightness);
-	gl.uniform1f(r.starU.uPointSize, r.pointSize);
-	gl.uniform1i(r.starU.uHorizonMode, r.horizonMode);
-	gl.uniform1f(r.starU.uDimFactor, r.dimFactor);
-	gl.drawArrays(gl.POINTS, 0, r.count);
+	gl.useProgram(renderer.starProg);
+	gl.bindVertexArray(renderer.vao);
+	gl.uniform3f(renderer.starU.uRight, camera.right[0], camera.right[1], camera.right[2]);
+	gl.uniform3f(renderer.starU.uUp, camera.up[0], camera.up[1], camera.up[2]);
+	gl.uniform3f(renderer.starU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
+	gl.uniform1f(renderer.starU.uTanHalfFov, tanHalfFov);
+	gl.uniform1f(renderer.starU.uAspectX, aspectX);
+	gl.uniform1f(renderer.starU.uAspectY, aspectY);
+	gl.uniform1f(renderer.starU.uBrightness, renderer.brightness);
+	gl.uniform1f(renderer.starU.uPointSize, renderer.pointSize);
+	gl.uniform1i(renderer.starU.uHorizonMode, renderer.horizonMode);
+	gl.uniform1f(renderer.starU.uDimFactor, renderer.dimFactor);
+	gl.drawArrays(gl.POINTS, 0, renderer.count);
 	gl.bindVertexArray(null);
 
 	if (selectedStar)
 	{
-		gl.useProgram(r.ringProg);
-		gl.bindVertexArray(r.ringVAO);
-		const v = sphereDir(selectedStar.ra, selectedStar.dec);
-		gl.uniform3f(r.ringU.uPos, v[0], v[1], v[2]);
-		gl.uniform3f(r.ringU.uRight, camera.right[0], camera.right[1], camera.right[2]);
-		gl.uniform3f(r.ringU.uUp, camera.up[0], camera.up[1], camera.up[2]);
-		gl.uniform3f(r.ringU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
-		gl.uniform1f(r.ringU.uTanHalfFov, tanHalf);
-		gl.uniform1f(r.ringU.uAspectX, ax);
-		gl.uniform1f(r.ringU.uAspectY, ay);
-		gl.uniform1f(r.ringU.uPointSize, 28);
+		gl.useProgram(renderer.ringProg);
+		gl.bindVertexArray(renderer.ringVAO);
+		const starPosition = sphereDir(selectedStar.ra, selectedStar.dec);
+		gl.uniform3f(renderer.ringU.uPos, starPosition[0], starPosition[1], starPosition[2]);
+		gl.uniform3f(renderer.ringU.uRight, camera.right[0], camera.right[1], camera.right[2]);
+		gl.uniform3f(renderer.ringU.uUp, camera.up[0], camera.up[1], camera.up[2]);
+		gl.uniform3f(renderer.ringU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
+		gl.uniform1f(renderer.ringU.uTanHalfFov, tanHalfFov);
+		gl.uniform1f(renderer.ringU.uAspectX, aspectX);
+		gl.uniform1f(renderer.ringU.uAspectY, aspectY);
+		gl.uniform1f(renderer.ringU.uPointSize, 28);
 		gl.drawArrays(gl.POINTS, 0, 1);
 		gl.bindVertexArray(null);
 	}

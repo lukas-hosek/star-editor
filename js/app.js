@@ -114,7 +114,7 @@ const controller = {
 		return state.allowMoving;
 	},
 
-	get gridVisible() {
+	get raDecGridVisible() {
 		return state.showRADecGrid;
 	},
 
@@ -126,8 +126,8 @@ const controller = {
 		return state.fileHandle;
 	},
 
-	set fileHandle(h) {
-		state.fileHandle = h;
+	set fileHandle(handle) {
+		state.fileHandle = handle;
 	},
 
 	selectedStar() {

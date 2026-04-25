@@ -41,7 +41,7 @@ export function createRenderer(canvas, overlayCanvas)
 
 		brightness: 1.0,
 		pointSize: STAR_POINT_SIZE,
-		gridVisible: false,
+		raDecGridVisible: false,
 		altAzGridVisible: false,
 		overlayScale: 1,
 		horizonMode: 0,
@@ -72,7 +72,7 @@ export function setPointSize(renderer, pointSize)
 
 export function setRADecGridVisible(renderer, visible)
 {
-	renderer.gridVisible = !!visible;
+	renderer.raDecGridVisible = !!visible;
 }
 
 
@@ -97,20 +97,20 @@ export function setZenith(renderer, zenith)
 
 export function resize(renderer, cssWidth, cssHeight, dpr)
 {
-	const w = Math.max(1, Math.floor(cssWidth * dpr));
-	const h = Math.max(1, Math.floor(cssHeight * dpr));
-	if (renderer.canvas.width !== w || renderer.canvas.height !== h)
+	const pixelWidth = Math.max(1, Math.floor(cssWidth * dpr));
+	const pixelHeight = Math.max(1, Math.floor(cssHeight * dpr));
+	if (renderer.canvas.width !== pixelWidth || renderer.canvas.height !== pixelHeight)
 	{
-		renderer.canvas.width = w;
-		renderer.canvas.height = h;
+		renderer.canvas.width = pixelWidth;
+		renderer.canvas.height = pixelHeight;
 	}
-	if (renderer.overlayCanvas.width !== w || renderer.overlayCanvas.height !== h)
+	if (renderer.overlayCanvas.width !== pixelWidth || renderer.overlayCanvas.height !== pixelHeight)
 	{
-		renderer.overlayCanvas.width = w;
-		renderer.overlayCanvas.height = h;
+		renderer.overlayCanvas.width = pixelWidth;
+		renderer.overlayCanvas.height = pixelHeight;
 	}
 	renderer.overlayScale = dpr;
-	renderer.gl.viewport(0, 0, w, h);
+	renderer.gl.viewport(0, 0, pixelWidth, pixelHeight);
 }
 
 

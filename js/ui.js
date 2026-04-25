@@ -29,9 +29,9 @@ async function pickSave(suggestedName) {
 
 
 async function writeHandle(handle, text) {
-	const w = await handle.createWritable();
-	await w.write(text);
-	await w.close();
+	const writable = await handle.createWritable();
+	await writable.write(text);
+	await writable.close();
 }
 
 
@@ -150,7 +150,7 @@ export function createUI(controller) {
 	});
 
 	el['btn-grid'].addEventListener('click', () => {
-		controller.setRADecGridVisible(!controller.gridVisible);
+		controller.setRADecGridVisible(!controller.raDecGridVisible);
 	});
 
 	el['btn-altaz-grid'].addEventListener('click', () => {
@@ -159,8 +159,8 @@ export function createUI(controller) {
 
 	// Brightness slider: log10 gain, -2..+3 → ×0.01..×1000.
 	el['brightness'].addEventListener('input', () => {
-		const v = parseFloat(el['brightness'].value);
-		const mult = Math.pow(10, v);
+		const sliderValue = parseFloat(el['brightness'].value);
+		const mult = Math.pow(10, sliderValue);
 		el['brightness-readout'].textContent = '×' + (mult >= 10 ? mult.toFixed(0) : mult.toFixed(2));
 		controller.setBrightness(mult);
 	});
