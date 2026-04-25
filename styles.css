@@ -293,6 +293,15 @@ main {
   padding: 0 4px;
 }
 
+#sky-section fieldset legend.legend-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 #sky-section label {
   display: block;
   color: var(--muted);
@@ -354,6 +363,12 @@ main {
   align-items: center;
   gap: 6px;
   text-transform: none !important;
+}
+
+.legend-toggle {
+  margin-bottom: 0 !important;
+  font-size: 10px !important;
+  color: var(--muted) !important;
 }
 
 .row-inline input[type=checkbox] { width: auto; display: inline; margin: 0; }

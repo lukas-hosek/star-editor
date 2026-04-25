@@ -103,14 +103,16 @@
           <button id="btn-save-preset" type="button">Save as preset…</button>
         </fieldset>
         <fieldset>
-          <legend>Time (UTC)</legend>
+          <legend class="legend-inline">
+            <span>Time (UTC)</span>
+            <label class="row-inline legend-toggle">
+              <input id="sky-time-live" type="checkbox" checked> Live
+            </label>
+          </legend>
           <label>Date <input id="sky-date" type="date"></label>
           <label>Time
             <input id="sky-time-slider" type="range" min="0" max="86399" step="1">
             <span id="sky-time-readout">00:00:00</span>
-          </label>
-          <label class="row-inline">
-            <input id="sky-time-live" type="checkbox" checked> Live
           </label>
         </fieldset>
       </section>
