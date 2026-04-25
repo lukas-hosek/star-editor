@@ -2,17 +2,25 @@
 // (from Vmag). A single draw call renders all stars; an extra call renders a
 // selection ring on top.
 
-import { ndcToPixel, project, sphereDir } from './camera.js';
+import { add, cross, ndcToPixel, normalize, project, scale, sphereDir, sub } from './camera.js';
 
 const DEG = Math.PI / 180;
 const GRID_RA_STEP = 30 * DEG;
 const GRID_DEC_STEP = 30 * DEG;
+const ALTAZ_AZ_STEP = 30 * DEG;
+const ALTAZ_ALT_STEP = 30 * DEG;
 const GRID_SAMPLE_STEP = 3 * DEG;
 const GRID_LABELS = [
 	{ text: '0h', ra: 0 },
 	{ text: '6h', ra: 90 * DEG },
 	{ text: '12h', ra: 180 * DEG },
 	{ text: '18h', ra: 270 * DEG },
+];
+const ALTAZ_LABELS = [
+	{ text: 'N', az: 0 },
+	{ text: 'E', az: Math.PI / 2 },
+	{ text: 'S', az: Math.PI },
+	{ text: 'W', az: 3 * Math.PI / 2 },
 ];
 const GRID_LINE_COLOR = 'rgba(126, 150, 182, 0.24)';
 const GRID_EQUATOR_COLOR = 'rgba(146, 172, 206, 0.34)';
@@ -273,6 +281,7 @@ export function createRenderer(canvas, overlayCanvas) {
 		brightness: 1.0,
 		pointSize: STAR_POINT_SIZE,
 		gridVisible: false,
+		altAzGridVisible: false,
 		overlayScale: 1,
 		horizonMode: 0,
 		dimFactor: 0.18,
@@ -408,6 +417,11 @@ export function setGridVisible(r, visible) {
 }
 
 
+export function setAltAzGridVisible(r, visible) {
+	r.altAzGridVisible = !!visible;
+}
+
+
 export function setHorizonMode(r, mode, dimFactor) {
 	r.horizonMode = mode;
 	if (dimFactor !== undefined) r.dimFactor = dimFactor;
@@ -449,7 +463,12 @@ export function resize(r, cssWidth, cssHeight, dpr) {
 
 
 function projectGridPoint(camera, ra, dec) {
-	const p = project(camera, sphereDir(ra, dec));
+	return projectWorldPoint(camera, sphereDir(ra, dec));
+}
+
+
+function projectWorldPoint(camera, point) {
+	const p = project(camera, point);
 	if (!Number.isFinite(p.nx) || !Number.isFinite(p.ny) || p.zc < -0.18) return null;
 	const [px, py] = ndcToPixel(camera, p.nx, p.ny);
 	const pad = 96;
@@ -458,12 +477,11 @@ function projectGridPoint(camera, ra, dec) {
 }
 
 
-function strokeGridCurve(ctx, camera, pointAt, start, end, step) {
+function strokeProjectedCurve(ctx, camera, pointAt, start, end, step) {
 	ctx.beginPath();
 	let segmentOpen = false;
 	for (let t = start; t <= end + step * 0.5; t += step) {
-		const [ra, dec] = pointAt(Math.min(t, end));
-		const pixel = projectGridPoint(camera, ra, dec);
+		const pixel = projectWorldPoint(camera, pointAt(Math.min(t, end)));
 		if (!pixel) {
 			segmentOpen = false;
 			continue;
@@ -477,6 +495,33 @@ function strokeGridCurve(ctx, camera, pointAt, start, end, step) {
 		}
 	}
 	ctx.stroke();
+}
+
+
+function localHorizonBasis(zenith) {
+	const Z = [0, 0, 1];
+	let northLocal = sub(Z, scale(zenith, zenith[2]));
+	const northLen = Math.hypot(northLocal[0], northLocal[1], northLocal[2]);
+	if (northLen < 1e-6) {
+		northLocal = [1, 0, 0];
+	}
+	else {
+		northLocal = scale(northLocal, 1 / northLen);
+	}
+	const eastLocal = normalize(cross(zenith, northLocal));
+	return { northLocal, eastLocal };
+}
+
+
+function altAzDir(alt, az, zenith, basis) {
+	const { northLocal, eastLocal } = basis;
+	const ca = Math.cos(alt);
+	const sa = Math.sin(alt);
+	const cz = Math.cos(az);
+	const sz = Math.sin(az);
+	return normalize(add(
+		add(scale(northLocal, ca * cz), scale(eastLocal, ca * sz)),
+		scale(zenith, sa)));
 }
 
 
@@ -501,24 +546,87 @@ function drawGridLabels(r, camera) {
 }
 
 
-function drawGridOverlay(r, camera) {
+function drawAltAzLabels(r, camera, basis) {
 	const ctx = r.overlayCtx;
-	ctx.setTransform(r.overlayScale, 0, 0, r.overlayScale, 0, 0);
-	ctx.clearRect(0, 0, camera.width, camera.height);
+	ctx.font = '12px system-ui, sans-serif';
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillStyle = GRID_TEXT_COLOR;
+	ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+	ctx.shadowBlur = 6;
+
+	for (const label of ALTAZ_LABELS) {
+		const pixel = projectWorldPoint(camera, altAzDir(0, label.az, r.zenith, basis));
+		if (!pixel) continue;
+		let dx = pixel[0] - camera.width * 0.5;
+		let dy = pixel[1] - camera.height * 0.5;
+		const len = Math.hypot(dx, dy);
+		if (len < 1e-3) {
+			dx = 0;
+			dy = -1;
+		}
+		else {
+			dx /= len;
+			dy /= len;
+		}
+		const x = Math.max(16, Math.min(camera.width - 16, pixel[0] + dx * 12));
+		const y = Math.max(16, Math.min(camera.height - 16, pixel[1] + dy * 12));
+		ctx.fillText(label.text, x, y);
+	}
+
+	ctx.shadowBlur = 0;
+}
+
+
+function drawRADecGridOverlay(r, camera) {
 	if (!r.gridVisible) return;
 
+	const ctx = r.overlayCtx;
 	ctx.lineWidth = 1;
 	ctx.strokeStyle = GRID_LINE_COLOR;
 	for (let ra = 0; ra < 2 * Math.PI - GRID_RA_STEP * 0.5; ra += GRID_RA_STEP) {
-		strokeGridCurve(ctx, camera, (dec) => [ra, dec], -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
+		strokeProjectedCurve(ctx, camera, (dec) => sphereDir(ra, dec), -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
 	}
 
 	for (let dec = -60 * DEG; dec <= 60 * DEG + GRID_DEC_STEP * 0.5; dec += GRID_DEC_STEP) {
 		ctx.strokeStyle = Math.abs(dec) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
-		strokeGridCurve(ctx, camera, (ra) => [ra, dec], 0, 2 * Math.PI, GRID_SAMPLE_STEP);
+		strokeProjectedCurve(ctx, camera, (ra) => sphereDir(ra, dec), 0, 2 * Math.PI, GRID_SAMPLE_STEP);
 	}
 
 	drawGridLabels(r, camera);
+}
+
+
+function drawAltAzGridOverlay(r, camera) {
+	if (!r.altAzGridVisible || !r.zenith) return;
+
+	const ctx = r.overlayCtx;
+	const basis = localHorizonBasis(r.zenith);
+
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = GRID_LINE_COLOR;
+	for (let az = 0; az < 2 * Math.PI - ALTAZ_AZ_STEP * 0.5; az += ALTAZ_AZ_STEP) {
+		strokeProjectedCurve(ctx, camera, (alt) => altAzDir(alt, az, r.zenith, basis), -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
+	}
+
+	for (let alt = -60 * DEG; alt <= 60 * DEG + ALTAZ_ALT_STEP * 0.5; alt += ALTAZ_ALT_STEP) {
+		ctx.strokeStyle = Math.abs(alt) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
+		strokeProjectedCurve(ctx, camera, (az) => altAzDir(alt, az, r.zenith, basis), 0, 2 * Math.PI, GRID_SAMPLE_STEP);
+	}
+
+	ctx.strokeStyle = GRID_LINE_COLOR;
+	drawAltAzLabels(r, camera, basis);
+}
+
+
+function drawGridOverlay(r, camera) {
+	const ctx = r.overlayCtx;
+	ctx.setTransform(r.overlayScale, 0, 0, r.overlayScale, 0, 0);
+	ctx.clearRect(0, 0, camera.width, camera.height);
+	if (!r.gridVisible && !r.altAzGridVisible) return;
+
+	drawRADecGridOverlay(r, camera);
+	drawAltAzGridOverlay(r, camera);
 }
 
 

@@ -60,6 +60,14 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 **Ground plane** (`js/renderer.js`): An additional fullscreen-quad draw call uses `GROUND_VS`/`GROUND_FS` to render a dark ground plane below the horizon in Local mode. The fragment shader unprojects each pixel to a world direction and discards fragments where `dot(worldDir, uZenith) > 0` (above horizon). Drawn only when `horizonMode == 2` and the zenith uniform `uZenith` is set via `setZenith()`.
 
+## Grid overlays
+
+- Toolbar buttons `#btn-grid` and `#btn-altaz-grid` toggle independent overlays on the shared `#sky-grid` canvas.
+- The RA/Dec grid is drawn in `drawRADecGridOverlay()` in `js/renderer.js`.
+- The Alt/Az grid is drawn in `drawAltAzGridOverlay()` in `js/renderer.js`, using the same zenith-based north/east basis as `lookAtAltAz()` and `fwdToAltAz()` in `js/camera.js`. Cardinal labels `N`, `E`, `S`, `W` are placed at projected horizon points for azimuth 0/90/180/270 and nudged outward from screen center.
+- Visibility is owned by `state.showGrid` and `state.showAltAzGrid` in `js/app.js`, with button state mirrored by `js/ui.js`.
+- Even in `mode: 'allsky'`, enabling the Alt/Az grid forces observer updates so location/time changes and live time keep the overlay in sync.
+
 **Control flow for altitude updates:**
 - `frame()` in `js/app.js` checks `skyState.needsAltUpdate` before rendering
 - `needsAltUpdate` is set to `true` by: mode change, location change, time change, catalog load

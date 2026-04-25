@@ -6,7 +6,7 @@ import {
 } from './camera.js';
 import {
 	createRenderer, syncAll, syncOne, appendStar, removeAt,
-	setBrightness, setGridVisible, setHorizonMode, setAltitudes, setZenith, resize, render,
+	setBrightness, setGridVisible, setAltAzGridVisible, setHorizonMode, setAltitudes, setZenith, resize, render,
 } from './renderer.js';
 import {
 	createObserver, updateObserver, computeAltitudes,
@@ -27,6 +27,7 @@ const state = {
 	addMode: false,
 	allowMoving: false,
 	showGrid: true,
+	showAltAzGrid: false,
 	isDirty: false,
 };
 
@@ -48,6 +49,11 @@ function requestRender() {
 	needsRender = true;
 }
 
+
+function needsObserverState() {
+	return skyState.mode !== 'allsky' || state.showAltAzGrid;
+}
+
 // --- Controller surface consumed by UI ----------------------------
 const controller = {
 	get stars() {
@@ -64,6 +70,10 @@ const controller = {
 
 	get gridVisible() {
 		return state.showGrid;
+	},
+
+	get altAzGridVisible() {
+		return state.showAltAzGrid;
 	},
 
 	get fileHandle() {
@@ -138,6 +148,20 @@ const controller = {
 		requestRender();
 	},
 
+	setAltAzGridVisible(on) {
+		state.showAltAzGrid = !!on;
+		setAltAzGridVisible(renderer, state.showAltAzGrid);
+		ui.setAltAzGridVisible(state.showAltAzGrid);
+		if (state.showAltAzGrid) {
+			if (!skyState.timeLocked) {
+				skyState.observer.utcMs = Date.now();
+				if (ui.syncSkyTime) ui.syncSkyTime();
+			}
+			skyState.needsAltUpdate = true;
+		}
+		requestRender();
+	},
+
 	onStarEdited() {
 		const i = state.selectedIndex;
 		if (i < 0) return;
@@ -197,6 +221,7 @@ const ui = createUI(controller);
 ui.setCatalogLoaded(false);
 ui.setAllowMoving(state.allowMoving);
 controller.setGridVisible(state.showGrid);
+controller.setAltAzGridVisible(state.showAltAzGrid);
 ui.showNoSelection();
 
 function updateStatus() {
@@ -402,13 +427,13 @@ handleResize();
 function frame() {
 	if (needsRender) {
 		needsRender = false;
-		if (skyState.mode !== 'allsky' && skyState.needsAltUpdate) {
+		if (needsObserverState() && skyState.needsAltUpdate) {
 			updateObserver(skyState.observer);
 			if (skyState.preserveAltAz && skyState.mode === 'local') {
 				lookAtAltAz(camera, skyState.savedAlt, skyState.savedAz, skyState.observer.zenithWorld);
 				skyState.preserveAltAz = false;
 			}
-			if (state.stars.length > 0) {
+			if (skyState.mode !== 'allsky' && state.stars.length > 0) {
 				skyState.altitudes = computeAltitudes(
 					state.stars, skyState.observer.lat, skyState.observer.lst, skyState.altitudes);
 				setAltitudes(renderer, skyState.altitudes);
@@ -425,7 +450,7 @@ frame();
 
 // Advance observer time in real-time when in highlight or local mode.
 setInterval(() => {
-	if (skyState.mode === 'allsky' || skyState.timeLocked) return;
+	if (!needsObserverState() || skyState.timeLocked) return;
 	if (skyState.mode === 'local') {
 		const { alt, az } = fwdToAltAz(camera, skyState.observer.zenithWorld);
 		skyState.savedAlt = alt;

@@ -134,7 +134,7 @@ async function pickOpenFallback(input) {
 export function createUI(controller) {
 	const el = {};
 	const ids = [
-		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'btn-grid',
+		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title',
 		'f-hr', 'f-name',
@@ -221,6 +221,10 @@ export function createUI(controller) {
 
 	el['btn-grid'].addEventListener('click', () => {
 		controller.setGridVisible(!controller.gridVisible);
+	});
+
+	el['btn-altaz-grid'].addEventListener('click', () => {
+		controller.setAltAzGridVisible(!controller.altAzGridVisible);
 	});
 
 	// Brightness slider: log10 gain, -2..+3 → ×0.01..×1000.
@@ -328,6 +332,11 @@ export function createUI(controller) {
 
 	function setGridVisible(active) {
 		el['btn-grid'].classList.toggle('active', active);
+	}
+
+
+	function setAltAzGridVisible(active) {
+		el['btn-altaz-grid'].classList.toggle('active', active);
 	}
 
 
@@ -470,6 +479,7 @@ export function createUI(controller) {
 		setAddMode,
 		setAllowMoving,
 		setGridVisible,
+		setAltAzGridVisible,
 		setCatalogLoaded,
 		focusName: () => el['f-name'].focus(),
 		syncSkyTime,
