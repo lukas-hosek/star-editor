@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="74" y1="56" x2="432" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#172035"/>
+      <stop offset="0.55" stop-color="#0a0d16"/>
+      <stop offset="1" stop-color="#05060a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="238" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5ce3ff" stop-opacity="0.42"/>
+      <stop offset="0.6" stop-color="#5ce3ff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#5ce3ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="star-fill" x1="198" y1="146" x2="332" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.58" stop-color="#b6f5ff"/>
+      <stop offset="1" stop-color="#3dd8ff"/>
+    </linearGradient>
+    <filter id="star-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="188" fill="url(#glow)"/>
+  <g fill="none" stroke="#5ce3ff" stroke-linecap="round">
+    <path d="M256 92v76" opacity="0.28" stroke-width="14"/>
+    <path d="M256 344v76" opacity="0.28" stroke-width="14"/>
+    <path d="M92 256h76" opacity="0.28" stroke-width="14"/>
+    <path d="M344 256h76" opacity="0.28" stroke-width="14"/>
+    <circle cx="256" cy="256" r="144" opacity="0.18" stroke-width="12"/>
+    <circle cx="256" cy="256" r="96" opacity="0.26" stroke-width="8" stroke-dasharray="1 23"/>
+    <path d="M160 160l52 52" opacity="0.12" stroke-width="10"/>
+    <path d="M352 160l-52 52" opacity="0.12" stroke-width="10"/>
+    <path d="M160 352l52-52" opacity="0.12" stroke-width="10"/>
+    <path d="M352 352l-52-52" opacity="0.12" stroke-width="10"/>
+  </g>
+  <g filter="url(#star-glow)">
+    <path d="M256 120L283 206L340 172L306 229L392 256L306 283L340 340L283 306L256 392L229 306L172 340L206 283L120 256L206 229L172 172L229 206Z" fill="url(#star-fill)"/>
+  </g>
+  <circle cx="256" cy="256" r="20" fill="#0b101b" opacity="0.72"/>
+  <circle cx="256" cy="256" r="14" fill="#5ce3ff"/>
+  <g fill="#d8d8e6" opacity="0.72">
+    <circle cx="124" cy="140" r="5"/>
+    <circle cx="388" cy="126" r="4"/>
+    <circle cx="404" cy="372" r="6"/>
+    <circle cx="136" cy="388" r="4"/>
+  </g>
+</svg>

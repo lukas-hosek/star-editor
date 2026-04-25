@@ -1,4 +1,5 @@
-// DOM-side: toolbar wiring, side-panel form, file I/O via File System Access.
+// DOM-side: toolbar wiring, side-panel form, file I/O via File System Access
+// with a download fallback for browsers that do not support direct file handles.
 // All DOM lookups happen once, in createUI.
 
 import { createSkyControls } from './ui-sky-controls.js';
@@ -32,6 +33,32 @@ async function writeHandle(handle, text) {
 	const writable = await handle.createWritable();
 	await writable.write(text);
 	await writable.close();
+}
+
+
+function normalizeCatalogName(fileName) {
+	if (typeof fileName !== 'string') {
+		return 'catalog.bsc';
+	}
+	const trimmedName = fileName.trim();
+	if (!trimmedName) {
+		return 'catalog.bsc';
+	}
+	return /\.[A-Za-z0-9]+$/.test(trimmedName) ? trimmedName : `${trimmedName}.bsc`;
+}
+
+
+function downloadCatalog(text, fileName) {
+	const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+	const downloadUrl = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = downloadUrl;
+	link.download = normalizeCatalogName(fileName);
+	link.hidden = true;
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
 }
 
 
@@ -78,11 +105,6 @@ export function createUI(controller) {
 	for (const id of ids) el[id] = document.getElementById(id);
 	const openFallbackInput = createOpenFallbackInput();
 
-	if (!supportsFileSystemAccess) {
-		el['banner'].textContent = 'Non-Chromium browser. Save is disabled.';
-		el['banner'].classList.remove('hidden');
-	}
-
 	// ---------- toolbar ----------
 	el['btn-open'].addEventListener('click', async () => {
 		try {
@@ -95,7 +117,7 @@ export function createUI(controller) {
 				: await pickOpenFallback(openFallbackInput);
 			const { file, handle } = selection;
 			const text = await file.text();
-			controller.loadCatalog(text, handle);
+			controller.loadCatalog(text, handle, file.name);
 		}
 		catch (err) {
 			if (err.name !== 'AbortError') {
@@ -111,11 +133,18 @@ export function createUI(controller) {
 			const text = controller.serialize();
 			if (controller.fileHandle) {
 				await writeHandle(controller.fileHandle, text);
+				controller.fileName = controller.fileHandle.name || controller.fileName;
 			}
-			else {
-				const handle = await pickSave('catalog');
+			else if (supportsFileSystemAccess) {
+				const handle = await pickSave(normalizeCatalogName(controller.fileName));
 				await writeHandle(handle, text);
 				controller.fileHandle = handle;
+				controller.fileName = handle.name || controller.fileName;
+			}
+			else {
+				const downloadName = normalizeCatalogName(controller.fileName);
+				downloadCatalog(text, downloadName);
+				controller.fileName = downloadName;
 			}
 			controller.markSaved();
 		}
@@ -127,9 +156,17 @@ export function createUI(controller) {
 	el['btn-save-as'].addEventListener('click', async () => {
 		try {
 			const text = controller.serialize();
-			const handle = await pickSave('catalog');
-			await writeHandle(handle, text);
-			controller.fileHandle = handle;
+			if (supportsFileSystemAccess) {
+				const handle = await pickSave(normalizeCatalogName(controller.fileName));
+				await writeHandle(handle, text);
+				controller.fileHandle = handle;
+				controller.fileName = handle.name || controller.fileName;
+			}
+			else {
+				const downloadName = normalizeCatalogName(controller.fileName);
+				downloadCatalog(text, downloadName);
+				controller.fileName = downloadName;
+			}
 			controller.markSaved();
 		}
 		catch (err) {
@@ -199,8 +236,8 @@ export function createUI(controller) {
 
 
 	function setCatalogLoaded(loaded) {
-		el['btn-save'].disabled = !loaded || !supportsFileSystemAccess;
-		el['btn-save-as'].disabled = !loaded || !supportsFileSystemAccess;
+		el['btn-save'].disabled = !loaded;
+		el['btn-save-as'].disabled = !loaded;
 		el['btn-add'].disabled = !loaded;
 		el['btn-move'].disabled = !loaded;
 	}

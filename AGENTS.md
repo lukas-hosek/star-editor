@@ -24,14 +24,14 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Control flow
 
-- App boot: `index.html` -> `js/app.js` -> `createEditorActions()` / `createCanvasInteractions()` / `startAppRuntime()`
+- App boot: `index.html` -> manifest/icon links + service-worker registration (when supported) -> `js/app.js` -> `createEditorActions()` / `createCanvasInteractions()` / `startAppRuntime()`
 - File open: `js/ui.js` -> `controller.loadCatalog()` -> `parseCatalog()` -> `syncAll()`
 - Side-panel edit: `js/ui-star-form.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
 - Side-panel title display: `js/ui-star-form.js:refreshSelection()` -> `formatSidebarTitle()` -> optional Bayer-style decode for the panel title only
 - Canvas input: `js/app.js` -> `createCanvasInteractions()` in `js/app-canvas-interactions.js` -> selection / add / drag / pan / zoom handlers
 - Add star: `js/app-canvas-interactions.js` -> `js/app-editor-actions.js:addStarAtPixel()` -> `pixelToRADec()` -> `makeNewStar()` -> `appendStar()`
 - Delete star: `js/app-editor-actions.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
-- Save: `js/ui.js` -> `controller.serialize()` -> `serializeCatalog()`
+- Save: `js/ui.js` -> `controller.serialize()` -> File System Access write when `state.fileHandle` is available, otherwise `showSaveFilePicker()` on Chromium or a Blob download fallback on Firefox/non-FSA contexts -> `markSaved()`
 
 ## Code style
 
@@ -114,6 +114,16 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
  `appendStar()`, `removeAt()` in `js/renderer.js`
 - Form/model conversion: `createStarFormUI()` in `js/ui-star-form.js`
+
+## Progressive Web App
+
+- Install assets live at the repo root: `manifest.webmanifest`, `service-worker.js`, and `icons/`.
+- `index.html` links the manifest and icon files, then registers `service-worker.js` after `load` when service workers are supported.
+- `service-worker.js` precaches the static app shell, bundled `catalog.bsc`, and icon assets. It does not try to cache or persist user-picked local files.
+- `loadDefaultCatalog()` in `js/app.js` now uses a normal fetch so the service worker or browser cache can satisfy `catalog.bsc` while offline.
+- `state.fileName` in `js/app.js` tracks the current suggested export name. `loadCatalog()` in `js/app-editor-actions.js` updates it from the opened file or bundled sample catalog, and `js/ui.js` reuses it when save falls back to a download.
+- Direct save remains Chromium-first through File System Access. Firefox and other unsupported contexts keep local-file open plus download-based `Save` / `Save As`.
+- Icon artwork uses the Star + Grid direction. Source SVGs live in `icons/star-editor.svg` and `icons/star-editor-maskable.svg`, and exported PNG sizes are generated from those source files for manifest use.
 
 ## Validation
 

@@ -25,6 +25,7 @@ const state = {
 	stars: [],              // Parsed catalog records in renderer order.
 	selectedIndex: -1,      // Currently selected star index, or -1 when nothing is selected.
 	fileHandle: null,       // File System Access handle used for save/save-as when available.
+	fileName: 'catalog.bsc',// Suggested catalog file name when save falls back to download.
 	addMode: false,         // When true, the next left click adds a new star instead of selecting.
 	allowMoving: false,     // When true, dragging the selected star updates its RA/Dec.
 	showRADecGrid: true,    // Whether the RA/Dec grid overlay is visible.
@@ -130,6 +131,14 @@ const controller = {
 		state.fileHandle = handle;
 	},
 
+	get fileName() {
+		return state.fileName;
+	},
+
+	set fileName(fileName) {
+		state.fileName = fileName;
+	},
+
 	selectedStar() {
 		return state.selectedIndex >= 0 ? state.stars[state.selectedIndex] : null;
 	},
@@ -212,12 +221,12 @@ editorActions.updateStatus();
 
 async function loadDefaultCatalog() {
 	try {
-		const response = await fetch('./catalog.bsc', { cache: 'no-store' });
+		const response = await fetch('./catalog.bsc');
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
 		}
 		const text = await response.text();
-		controller.loadCatalog(text, null);
+		controller.loadCatalog(text, null, 'catalog.bsc');
 	}
 	catch (err) {
 		const banner = document.getElementById('banner');

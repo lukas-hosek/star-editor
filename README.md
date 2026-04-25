@@ -6,6 +6,8 @@ Small browser-only editor for Yale Bright Star Catalogue (BSC5) files. It loads 
 
 No build step is required. Open `index.html` in a browser, or serve the directory with a minimal static file server if your browser blocks module loading from `file:` URLs.
 
+Use `http://localhost` during development, or HTTPS in production, if you want the installable PWA path with offline caching. Those features are not available from a `file:` URL.
+
 To start a local test server with Python:
 
 ```bash
@@ -14,10 +16,19 @@ python3 -m http.server 8080
 
 Then open `http://localhost:8080` in your browser.
 
+## PWA and browser support
+
+- Chromium on `localhost` or HTTPS: installable PWA, offline app shell plus bundled `catalog.bsc`, and direct `Save` / `Save As` through the File System Access API.
+- Firefox: offline shell after the first online visit, local file open through the fallback picker, and download-based export for `Save` / `Save As`.
+- Other browsers: expected to follow the same degraded path as Firefox when service workers and download-based export are available.
+
 ## What lives where
 
 - `index.html`: static shell for the toolbar, sky canvas, edit panel, and module entrypoint.
+- `manifest.webmanifest`: install metadata for the PWA, including icon declarations and theme colors.
+- `service-worker.js`: versioned precache for the app shell, bundled sample catalog, and install assets.
 - `styles.css`: all layout and visual styling.
+- `icons/`: source SVG artwork plus exported PNG icons for install and home-screen use.
 - `js/app.js`: app controller and state owner. This is the first file to read when behavior spans multiple modules.
 - `js/catalog.js`: fixed-width BSC5 parser and serializer, plus derived photometry helpers.
 - `js/camera.js`: stereographic camera math, projection, unprojection, panning, and zoom anchoring.
@@ -25,7 +36,7 @@ Then open `http://localhost:8080` in your browser.
 - `js/picking.js`: screen-space picking and pixel-to-sky conversion.
 - `js/ui.js`: DOM wiring, file open/save integration, and side-panel form synchronization.
 - `ybsc5.readme`: upstream byte layout for the catalog format.
-- `catalog.bsc`: sample catalog data for manual testing.
+- `catalog.bsc`: bundled sample catalog data, also used for offline startup once the PWA cache is primed.
 
 ## Runtime model
 

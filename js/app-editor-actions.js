@@ -35,12 +35,13 @@ export function createEditorActions(options)
 	}
 
 
-	function loadCatalog(text, handle)
+	function loadCatalog(text, handle, fileName)
 	{
 		const ui = getUI();
 		const stars = parseCatalog(text);
 		state.stars = stars;
 		state.fileHandle = handle || null;
+		state.fileName = fileName || handle?.name || 'catalog.bsc';
 		state.selectedIndex = -1;
 		state.allowMoving = false;
 		state.isDirty = false;
