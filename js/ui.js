@@ -150,7 +150,7 @@ export function createUI(controller) {
 	});
 
 	el['btn-grid'].addEventListener('click', () => {
-		controller.setGridVisible(!controller.gridVisible);
+		controller.setRADecGridVisible(!controller.gridVisible);
 	});
 
 	el['btn-altaz-grid'].addEventListener('click', () => {
@@ -180,7 +180,7 @@ export function createUI(controller) {
 	}
 
 
-	function setGridVisible(active) {
+	function setRADecGridVisible(active) {
 		el['btn-grid'].classList.toggle('active', active);
 	}
 
@@ -214,7 +214,7 @@ export function createUI(controller) {
 		setStatus,
 		setAddMode,
 		setAllowMoving,
-		setGridVisible,
+		setRADecGridVisible,
 		setAltAzGridVisible,
 		setCatalogLoaded,
 		focusName: starForm.focusName,

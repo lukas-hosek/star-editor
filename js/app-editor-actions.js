@@ -7,7 +7,7 @@ import {
 	removeAt,
 	setAltAzGridVisible,
 	setBrightness,
-	setGridVisible,
+	setRADecGridVisible,
 	syncAll,
 	syncOne,
 } from './renderer.js';
@@ -104,12 +104,12 @@ export function createEditorActions(options)
 	}
 
 
-	function setGridVisibleState(on)
+	function setRADecGridVisibleState(on)
 	{
 		const ui = getUI();
 		state.showRADecGrid = !!on;
-		setGridVisible(renderer, state.showRADecGrid);
-		ui.setGridVisible(state.showRADecGrid);
+		setRADecGridVisible(renderer, state.showRADecGrid);
+		ui.setRADecGridVisible(state.showRADecGrid);
 		requestRender();
 	}
 
@@ -199,7 +199,7 @@ export function createEditorActions(options)
 		setAllowMoving,
 		deleteSelected,
 		setBrightness: setBrightnessMult,
-		setGridVisible: setGridVisibleState,
+		setRADecGridVisible: setRADecGridVisibleState,
 		setAltAzGridVisible: setAltAzGridVisibleState,
 		onStarEdited,
 		selectStar,

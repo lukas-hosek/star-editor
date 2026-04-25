@@ -95,7 +95,7 @@ const {
 	setAllowMoving,
 	deleteSelected,
 	setBrightness,
-	setGridVisible,
+	setRADecGridVisible,
 	setAltAzGridVisible,
 	onStarEdited,
 } = editorActions;
@@ -157,7 +157,7 @@ const controller = {
 	setAllowMoving,
 	deleteSelected,
 	setBrightness,
-	setGridVisible,
+	setRADecGridVisible,
 	setAltAzGridVisible,
 	onStarEdited,
 
@@ -205,7 +205,7 @@ const controller = {
 ui = createUI(controller);
 ui.setCatalogLoaded(false);
 ui.setAllowMoving(state.allowMoving);
-controller.setGridVisible(state.showRADecGrid);
+controller.setRADecGridVisible(state.showRADecGrid);
 controller.setAltAzGridVisible(state.showAltAzGrid);
 ui.showNoSelection();
 editorActions.updateStatus();

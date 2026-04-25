@@ -10,7 +10,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Only branch outward after identifying which slice is responsible:
   - parsing and serialization: `js/catalog.js`
   - camera math and sky projection: `js/camera.js`
-  - renderer draw passes and shader setup: `js/renderer.js`
+  - renderer composition and exported API: `js/renderer.js`
+  - renderer draw passes and shader setup: `js/renderer-pipeline.js`
   - star GPU buffers and incremental sync: `js/renderer-star-buffer.js`
   - projected grid overlays and labels: `js/renderer-overlay.js`
   - picking and pixel-to-sky conversion: `js/picking.js`
@@ -61,10 +62,11 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Renderer split
 
-- `js/renderer.js` now owns renderer composition: shader program creation, ground/ring/star draw passes, and the exported renderer API.
+- `js/renderer.js` now owns renderer composition, shared renderer state assembly, and the exported renderer API.
+- `js/renderer-pipeline.js` owns shader program creation plus the ground/ring/star WebGL draw passes.
 - `js/renderer-star-buffer.js` owns star attribute buffer allocation plus `syncAll()`, `syncOne()`, `appendStar()`, `removeAt()`, and `setAltitudes()`.
 - `js/renderer-overlay.js` owns the RA/Dec and Alt/Az grid projection/drawing helpers used by `drawGridOverlay()`, while reusing `localHorizonBasis()` / `altAzDir()` from `js/camera.js`.
-- `createRenderer()` in `js/renderer.js` builds the shared renderer state, delegates star-buffer setup to `createStarBuffers()`, and `render()` delegates overlay drawing to `drawGridOverlay()` after the WebGL passes finish.
+- `createRenderer()` in `js/renderer.js` builds the shared renderer state, delegates pipeline setup to `createRendererPipeline()`, delegates star-buffer setup to `createStarBuffers()`, and `render()` delegates WebGL drawing to `drawRenderPipeline()` before overlay drawing runs.
 
 ## View modes
 
@@ -72,7 +74,7 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 **All-sky** (`mode: 'allsky'`): Default. Full stereographic projection, free-form pan (camera can roll freely), all stars rendered at full brightness. Horizon and observer state are unused.
 
-**All-sky + Horizon** (`mode: 'highlight'`): Same projection and free pan as All-sky. Stars below the observer's horizon are dimmed by `renderer.dimFactor` (default 0.18). Per-star altitudes are computed CPU-side each frame by `computeAltitudes()` in `js/sky.js` and uploaded via `setAltitudes()` to a dedicated `aAlt` GPU attribute. The shader (`STAR_VS` in `js/renderer.js`) checks `uHorizonMode == 1` and applies the dim factor when `aAlt < 0.0`.
+**All-sky + Horizon** (`mode: 'highlight'`): Same projection and free pan as All-sky. Stars below the observer's horizon are dimmed by `renderer.dimFactor` (default 0.18). Per-star altitudes are computed CPU-side each frame by `computeAltitudes()` in `js/sky.js` and uploaded via `setAltitudes()` to a dedicated `aAlt` GPU attribute. The shader (`STAR_VS` in `js/renderer-pipeline.js`) checks `uHorizonMode == 1` and applies the dim factor when `aAlt < 0.0`.
 
 **Local** (`mode: 'local'`): Stars below the horizon are fully culled (shader checks `uHorizonMode == 2 && aAlt < 0.0`). Camera is constrained: `camera.up` always points toward the zenith, so pan is pure azimuth/altitude with no roll. Pan in Local mode is implemented by a direct alt/az delta: on RMB mousedown the pixel position and current center alt/az are captured (via `fwdToAltAz()` in `js/camera.js`); each mousemove computes `(dx, dy)` from the start pixel, converts to angle deltas using `fov / (height/2)` rad/px, and calls `lookAtAltAz()` with the new values. This avoids the degeneracies of the sphere-drag approach. Entering Local mode snaps the camera to `alt=DEFAULT_LOCAL_ALT, az=0` via `lookAtAltAz()` in `js/app.js`, and location changes while already in Local mode reuse that same reset view. Picking also skips below-horizon stars (optional `altitudes` param in `pickStar()`).
 
@@ -80,7 +82,7 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 **Sky location UI** (`createSkyControls` / `SkyLocationManager` in `js/ui-sky-controls.js`): owns the location preset dropdown, latitude/longitude inputs, sky mode buttons, UTC time controls, and startup geolocation. On startup it first syncs the dropdown selection to the current observer coordinates so the default Prague observer also selects Prague in the menu. It then attempts a one-shot browser geolocation lookup; on success a transient `Local Position` entry is inserted at the top of the preset dropdown and applied unless the user already changed the location controls. Manual lat/lon edits still force the dropdown to `Custom`, while explicit preset selections and saved presets continue to route through `controller.setObserverLocation()`.
 
-**Ground plane** (`js/renderer.js`): An additional fullscreen-quad draw call uses `GROUND_VS`/`GROUND_FS` to render a dark ground plane below the horizon in Local mode. The fragment shader unprojects each pixel to a world direction and discards fragments where `dot(worldDir, uZenith) > 0` (above horizon). Drawn only when `horizonMode == 2` and the zenith uniform `uZenith` is set via `setZenith()`.
+**Ground plane** (`js/renderer-pipeline.js`): An additional fullscreen-quad draw call uses `GROUND_VS`/`GROUND_FS` to render a dark ground plane below the horizon in Local mode. The fragment shader unprojects each pixel to a world direction and discards fragments where `dot(worldDir, uZenith) > 0` (above horizon). Drawn only when `horizonMode == 2` and the zenith uniform `uZenith` is set via `setZenith()`.
 
 ## Grid overlays
 
