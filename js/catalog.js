@@ -1,6 +1,8 @@
 // Yale Bright Star Catalog (BSC5) fixed-width parser + serializer.
 // Byte offsets follow ybsc5.readme (1-based there, 0-based here).
 
+import { radiansToHMS, radiansToDMS } from './coords.js';
+
 const RECORD_LEN = 197;
 const D2R = Math.PI / 180;
 
@@ -216,58 +218,6 @@ function spliceField(buf, aOneBased, bOneBased, value) {
 		: value.length > width ? value.slice(0, width)
 			: value + padSpace(width - value.length);
 	for (let i = 0; i < width; i++) buf[start + i] = v[i];
-}
-
-
-// --- RA/Dec packing ------------------------------------------------
-function radiansToHMS(ra) {
-	// ra is in radians; wrap to [0, 2π)
-	let r = ra % (2 * Math.PI);
-	if (r < 0) r += 2 * Math.PI;
-	const totalHours = r * 12 / Math.PI;  // radians → hours
-	let h = Math.floor(totalHours);
-	let rem = (totalHours - h) * 60;
-	let m = Math.floor(rem);
-	let s = (rem - m) * 60;
-	// Round seconds to 1 decimal and cascade carries.
-	s = Math.round(s * 10) / 10;
-	if (s >= 60) {
-		s -= 60;
-		m += 1;
-	}
-	if (m >= 60) {
-		m -= 60;
-		h += 1;
-	}
-	if (h >= 24) {
-		h -= 24;
-	}
-	return { h, m, s };
-}
-
-
-function radiansToDMS(dec) {
-	// Clamp to [-π/2, π/2] then produce DMS.
-	const sign = dec < 0 ? '-' : '+';
-	let abs = Math.abs(dec) * 180 / Math.PI;
-	let d = Math.floor(abs);
-	let rem = (abs - d) * 60;
-	let m = Math.floor(rem);
-	let s = Math.round((rem - m) * 60);
-	if (s >= 60) {
-		s -= 60;
-		m += 1;
-	}
-	if (m >= 60) {
-		m -= 60;
-		d += 1;
-	}
-	if (d > 90) {
-		d = 90;
-		m = 0;
-		s = 0;
-	}
-	return { sign, d, m, s };
 }
 
 

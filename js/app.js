@@ -89,6 +89,22 @@ const controller = {
 		return state.selectedIndex >= 0 ? state.stars[state.selectedIndex] : null;
 	},
 
+	getObserver() {
+		return skyState.observer;
+	},
+
+	getUserPresets() {
+		return skyState.userPresets;
+	},
+
+	isTimeLocked() {
+		return skyState.timeLocked;
+	},
+
+	setTimeLocked(locked) {
+		skyState.timeLocked = !!locked;
+	},
+
 	loadCatalog(text, handle) {
 		const stars = parseCatalog(text);
 		state.stars = stars;
@@ -174,8 +190,6 @@ const controller = {
 		updateStatus();
 		requestRender();
 	},
-
-	get skyState() { return skyState; },
 
 	setSkyMode(mode) {
 		skyState.mode = mode;
