@@ -203,8 +203,8 @@ main {
   margin: 0 0 12px;
   color: var(--accent);
   font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 #panel-form label {

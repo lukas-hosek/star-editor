@@ -27,6 +27,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - App boot: `index.html` -> `js/app.js` -> `createEditorActions()` / `createCanvasInteractions()` / `startAppRuntime()`
 - File open: `js/ui.js` -> `controller.loadCatalog()` -> `parseCatalog()` -> `syncAll()`
 - Side-panel edit: `js/ui-star-form.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
+- Side-panel title display: `js/ui-star-form.js:refreshSelection()` -> `formatSidebarTitle()` -> optional Bayer-style decode for the panel title only
 - Canvas input: `js/app.js` -> `createCanvasInteractions()` in `js/app-canvas-interactions.js` -> selection / add / drag / pan / zoom handlers
 - Add star: `js/app-canvas-interactions.js` -> `js/app-editor-actions.js:addStarAtPixel()` -> `pixelToRADec()` -> `makeNewStar()` -> `appendStar()`
 - Delete star: `js/app-editor-actions.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
@@ -61,6 +62,13 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Shared local-horizon helpers: `localHorizonBasis()` and `altAzDir()` in `js/camera.js`
 - Sky/observer state: `skyState` in `js/app.js`
 - Sidereal time and horizon math: `js/sky.js`
+
+## Sidebar title formatting
+
+- `formatSidebarTitleName()` in `js/ui-star-form.js` decodes a narrow subset of BSC `Name` values for the selected-star sidebar title only.
+- Supported display decode: optional leading Flamsteed number plus a Bayer Greek abbreviation and 3-letter constellation code, rendered as `α Lyrae`-style text. If both Flamsteed and Bayer are present, the sidebar title drops the Flamsteed number and shows only the Bayer form.
+- Supported component decode: Bayer component indices attached to or spaced after the Greek abbreviation, such as `Kap1Cet`, `Bet2Cyg`, or `Pi 2Cyg`, render with superscript digits as `κ¹ Ceti`, `β² Cygni`, or `π² Cygni`.
+- The editable `Name` field and catalog serialization stay raw; this is display-only. Ambiguous or non-matching names such as variable-star IDs, catalog identifiers, or Flamsteed-only names fall back to the unmodified catalog text.
 
 ## Renderer split
 
