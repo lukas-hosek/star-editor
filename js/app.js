@@ -19,6 +19,7 @@ const canvas = document.getElementById('sky');
 const gridCanvas = document.getElementById('sky-grid');
 const renderer = createRenderer(canvas, gridCanvas);
 const camera = createCamera();
+const DEFAULT_LOCAL_ALT = Math.PI / 3;
 
 const state = {
 	stars: [],              // Parsed catalog records in renderer order.
@@ -182,7 +183,7 @@ const controller = {
 		setHorizonMode(renderer, hmMap[mode] ?? 0);
 		if (mode === 'local') {
 			updateObserver(skyState.observer);
-			lookAtAltAz(camera, 0, 0, skyState.observer.zenithWorld);
+			lookAtAltAz(camera, DEFAULT_LOCAL_ALT, 0, skyState.observer.zenithWorld);
 		}
 		skyState.needsAltUpdate = true;
 		requestRender();
@@ -194,7 +195,7 @@ const controller = {
 		skyState.needsAltUpdate = true;
 		if (skyState.mode === 'local') {
 			updateObserver(skyState.observer);
-			lookAtAltAz(camera, 0, 0, skyState.observer.zenithWorld);
+			lookAtAltAz(camera, DEFAULT_LOCAL_ALT, 0, skyState.observer.zenithWorld);
 		}
 		requestRender();
 	},
