@@ -68,7 +68,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - `formatSidebarTitleName()` in `js/ui-star-form.js` decodes a narrow subset of BSC `Name` values for the selected-star sidebar title only.
 - Supported display decode: optional leading Flamsteed number plus a Bayer Greek abbreviation and 3-letter constellation code, rendered as `α Lyrae`-style text. If both Flamsteed and Bayer are present, the sidebar title drops the Flamsteed number and shows only the Bayer form.
 - Supported component decode: Bayer component indices attached to or spaced after the Greek abbreviation, such as `Kap1Cet`, `Bet2Cyg`, or `Pi 2Cyg`, render with superscript digits as `κ¹ Ceti`, `β² Cygni`, or `π² Cygni`.
-- The editable `Name` field and catalog serialization stay raw; this is display-only. Ambiguous or non-matching names such as variable-star IDs, catalog identifiers, or Flamsteed-only names fall back to the unmodified catalog text.
+- Supported Flamsteed-only decode: names such as `34 Cyg` render as `34 Cygni` when the name is only a Flamsteed number plus a 3-letter constellation code.
+- The editable `Name` field and catalog serialization stay raw; this is display-only. Ambiguous or non-matching names such as variable-star IDs or catalog identifiers fall back to the unmodified catalog text.
 
 ## Renderer split
 

@@ -157,6 +157,10 @@ const COMPONENT_BAYER_TITLE_NAME_RE = new RegExp(
 	`^(${GREEK_BAYER_TOKENS})\\s*(\\d{1,3})\\s*(${CONSTELLATION_TOKENS})$`
 );
 
+const FLAMSTEED_TITLE_NAME_RE = new RegExp(
+	`^(\\d{1,3})\\s+(${CONSTELLATION_TOKENS})$`
+);
+
 const LEADING_FLAMSTEED_RE = /^\d{1,3}\s*/;
 
 const SUPERSCRIPT_DIGITS = {
@@ -185,9 +189,18 @@ function formatSidebarTitleName(name)
 
 	const trimmedName = name.trim();
 	const normalizedName = trimmedName.replace(/\s+/g, ' ');
+	let match = normalizedName.match(FLAMSTEED_TITLE_NAME_RE);
+	if (match)
+	{
+		const constellation = CONSTELLATION_GENITIVES[match[2]];
+		if (!constellation) return trimmedName;
+
+		return `${match[1]} ${constellation}`;
+	}
+
 	const bayerName = normalizedName.replace(LEADING_FLAMSTEED_RE, '');
 
-	let match = bayerName.match(COMPONENT_BAYER_TITLE_NAME_RE);
+	match = bayerName.match(COMPONENT_BAYER_TITLE_NAME_RE);
 	if (match)
 	{
 		const greekLetter = GREEK_LETTER_SYMBOLS[match[1]];
