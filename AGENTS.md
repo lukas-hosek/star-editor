@@ -12,13 +12,15 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
   - camera math and sky projection: `js/camera.js`
   - rendering and GPU buffers: `js/renderer.js`
   - picking and pixel-to-sky conversion: `js/picking.js`
-  - DOM, file I/O, and form sync: `js/ui.js`
+  - top-level UI composition and file I/O: `js/ui.js`
+  - star form sync and selection panel state: `js/ui-star-form.js`
+  - sky mode/location/time controls: `js/ui-sky-controls.js`
 
 ## Control flow
 
 - App boot: `index.html` -> `js/app.js`
 - File open: `js/ui.js` -> `controller.loadCatalog()` -> `parseCatalog()` -> `syncAll()`
-- Side-panel edit: `js/ui.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
+- Side-panel edit: `js/ui-star-form.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
 - Add star: `js/app.js:addStarAtPixel()` -> `pixelToRADec()` -> `makeNewStar()` -> `appendStar()`
 - Delete star: `js/app.js:deleteStarAt()` -> swap-and-pop in app state -> `removeAt()`
 - Save: `js/ui.js` -> `controller.serialize()` -> `serializeCatalog()`
@@ -58,7 +60,7 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 **Observer state** (`skyState.observer` in `js/app.js`): holds `lat`, `lon`, `utcMs`, and derived `lst` + `zenithWorld`. Updated by `updateObserver()` from `js/sky.js` before each frame that needs altitudes. Built-in location presets live in `LOCATION_PRESETS` in `js/sky.js`; they use `CCC - City` names, are stored alphabetically, and Prague remains the startup default by name lookup rather than array position. Location/time UI lives in `#sky-section` at the bottom of the side panel (always visible, pinned with flex layout). User presets are stored in `localStorage` via `loadUserPresets` / `saveUserPresets` in `js/sky.js`.
 
-**Sky location UI** (`SkyLocationManager` in `js/ui.js`): owns the location preset dropdown, latitude/longitude inputs, and startup geolocation. On startup it first syncs the dropdown selection to the current observer coordinates so the default Prague observer also selects Prague in the menu. It then attempts a one-shot browser geolocation lookup; on success a transient `Local Position` entry is inserted at the top of the preset dropdown and applied unless the user already changed the location controls. Manual lat/lon edits still force the dropdown to `Custom`, while explicit preset selections and saved presets continue to route through `controller.setObserverLocation()`.
+**Sky location UI** (`createSkyControls` / `SkyLocationManager` in `js/ui-sky-controls.js`): owns the location preset dropdown, latitude/longitude inputs, sky mode buttons, UTC time controls, and startup geolocation. On startup it first syncs the dropdown selection to the current observer coordinates so the default Prague observer also selects Prague in the menu. It then attempts a one-shot browser geolocation lookup; on success a transient `Local Position` entry is inserted at the top of the preset dropdown and applied unless the user already changed the location controls. Manual lat/lon edits still force the dropdown to `Custom`, while explicit preset selections and saved presets continue to route through `controller.setObserverLocation()`.
 
 **Ground plane** (`js/renderer.js`): An additional fullscreen-quad draw call uses `GROUND_VS`/`GROUND_FS` to render a dark ground plane below the horizon in Local mode. The fragment shader unprojects each pixel to a world direction and discards fragments where `dot(worldDir, uZenith) > 0` (above horizon). Drawn only when `horizonMode == 2` and the zenith uniform `uZenith` is set via `setZenith()`.
 
@@ -80,9 +82,10 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - Location changes and mode switches do NOT set the flag, so those keep their existing `DEFAULT_LOCAL_ALT`/0 reset behaviour.
 
  `appendStar()`, `removeAt()` in `js/renderer.js`
-- Form/model conversion: `onFormInput()` and `refreshSelection()` in `js/ui.js`
+- Form/model conversion: `createStarFormUI()` in `js/ui-star-form.js`
 
 ## Validation
 
 - If code changes are made, prefer the cheapest browser-based validation that exercises the touched path.
+- Use Chromium for browser validation in this repo. Do not spend time probing for other browsers before running a test.
 - If no executable validation is available in this environment, inspect the changed files and report the exact manual path to verify.
