@@ -21,26 +21,26 @@ const renderer = createRenderer(canvas, gridCanvas);
 const camera = createCamera();
 
 const state = {
-	stars: [],
-	selectedIndex: -1,
-	fileHandle: null,
-	addMode: false,
-	allowMoving: false,
-	showGrid: true,
-	showAltAzGrid: false,
-	isDirty: false,
+	stars: [],              // Parsed catalog records in renderer order.
+	selectedIndex: -1,      // Currently selected star index, or -1 when nothing is selected.
+	fileHandle: null,       // File System Access handle used for save/save-as when available.
+	addMode: false,         // When true, the next left click adds a new star instead of selecting.
+	allowMoving: false,     // When true, dragging the selected star updates its RA/Dec.
+	showRADecGrid: true,    // Whether the RA/Dec grid overlay is visible.
+	showAltAzGrid: false,   // Whether the Alt/Az grid overlay is visible.
+	isDirty: false,         // Tracks unsaved catalog edits for status text and unload warnings.
 };
 
 const skyState = {
-	mode: 'allsky',            // 'allsky' | 'highlight' | 'local'
-	observer: createObserver(),
-	userPresets: loadUserPresets(),
-	altitudes: new Float32Array(0),
-	needsAltUpdate: true,
-	timeLocked: false,
-	preserveAltAz: false,      // when true, frame loop re-orients camera after observer update
-	savedAlt: 0,
-	savedAz: 0,
+	mode: 'allsky',            // Active sky view mode: 'allsky' | 'highlight' | 'local'.
+	observer: createObserver(),// Current observer location, time, and derived horizon basis.
+	userPresets: loadUserPresets(), // User-saved observer location presets from localStorage.
+	altitudes: new Float32Array(0), // Per-star altitude cache for horizon dimming/culling.
+	needsAltUpdate: true,      // Signals that observer-derived altitude data must be recomputed.
+	timeLocked: false,         // When true, live time updates are paused and the chosen UTC time is fixed.
+	preserveAltAz: false,      // When true, frame loop re-orients camera after observer update.
+	savedAlt: 0,               // Local-mode camera altitude to restore after a time-driven observer update.
+	savedAz: 0,                // Local-mode camera azimuth to restore after a time-driven observer update.
 };
 
 let needsRender = true;
@@ -69,7 +69,7 @@ const controller = {
 	},
 
 	get gridVisible() {
-		return state.showGrid;
+		return state.showRADecGrid;
 	},
 
 	get altAzGridVisible() {
@@ -142,9 +142,9 @@ const controller = {
 	},
 
 	setGridVisible(on) {
-		state.showGrid = !!on;
-		setGridVisible(renderer, state.showGrid);
-		ui.setGridVisible(state.showGrid);
+		state.showRADecGrid = !!on;
+		setGridVisible(renderer, state.showRADecGrid);
+		ui.setGridVisible(state.showRADecGrid);
 		requestRender();
 	},
 
@@ -220,7 +220,7 @@ const controller = {
 const ui = createUI(controller);
 ui.setCatalogLoaded(false);
 ui.setAllowMoving(state.allowMoving);
-controller.setGridVisible(state.showGrid);
+controller.setGridVisible(state.showRADecGrid);
 controller.setAltAzGridVisible(state.showAltAzGrid);
 ui.showNoSelection();
 
