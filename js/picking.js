@@ -12,6 +12,7 @@ export function pickStar(
 	radiusPx = 10,
 	brightness = 1,
 	minScreenBrightness = 0,
+	altitudes = null,
 ) {
 	const [nx, ny] = pixelToNDC(cam, pixelX, pixelY);
 	const halfW = cam.width * 0.5;
@@ -23,6 +24,7 @@ export function pickStar(
 
 	for (let i = 0; i < stars.length; i++) {
 		const s = stars[i];
+		if (altitudes && altitudes[i] < 0) continue;
 		if (s.flux * brightness <= minScreenBrightness) continue;
 		const v = sphereDir(s.ra, s.dec);
 		const { nx: snx, ny: sny, zc } = project(cam, v);

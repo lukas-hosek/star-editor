@@ -1,6 +1,8 @@
 // DOM-side: toolbar wiring, side-panel form, file I/O via File System Access.
 // All DOM lookups happen once, in createUI.
 
+import { DEFAULT_PRESETS } from './sky.js';
+
 const HRS_PER_RAD = 12 / Math.PI;
 const DEG_PER_RAD = 180 / Math.PI;
 
@@ -140,6 +142,8 @@ export function createUI(controller) {
 		'f-de-sign', 'f-de-d', 'f-de-m', 'f-de-s',
 		'f-vmag', 'f-bv', 'f-sp', 'f-pmra', 'f-pmde', 'f-plx', 'f-rv',
 		'banner',
+		'sky-section', 'sky-mode-toggle', 'sky-preset', 'sky-lat', 'sky-lon', 'btn-save-preset',
+		'sky-date', 'sky-time-slider', 'sky-time-readout', 'sky-time-live',
 	];
 	for (const id of ids) el[id] = document.getElementById(id);
 	const openFallbackInput = createOpenFallbackInput();
@@ -342,6 +346,122 @@ export function createUI(controller) {
 		el['btn-move'].disabled = !loaded;
 	}
 
+	// ---------- Sky section ----------
+
+	function populatePresets() {
+		const sel = el['sky-preset'];
+		sel.innerHTML = '';
+		const allPresets = [...DEFAULT_PRESETS, ...controller.skyState.userPresets];
+		for (const p of allPresets) {
+			const opt = document.createElement('option');
+			opt.value = JSON.stringify({ lat: p.lat, lon: p.lon });
+			opt.textContent = p.name;
+			sel.appendChild(opt);
+		}
+		const custom = document.createElement('option');
+		custom.value = 'custom';
+		custom.textContent = '— Custom —';
+		sel.appendChild(custom);
+	}
+
+	function syncSkyTime() {
+		const obs = controller.skyState.observer;
+		const d = new Date(obs.utcMs);
+		el['sky-date'].value = d.toISOString().slice(0, 10);
+		const secs = d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
+		el['sky-time-slider'].value = secs;
+		const hh = String(d.getUTCHours()).padStart(2, '0');
+		const mm = String(d.getUTCMinutes()).padStart(2, '0');
+		const ss = String(d.getUTCSeconds()).padStart(2, '0');
+		el['sky-time-readout'].textContent = `${hh}:${mm}:${ss}`;
+	}
+
+	// Mode toggle buttons
+	for (const btn of el['sky-mode-toggle'].querySelectorAll('.sky-mode-btn')) {
+		btn.addEventListener('click', () => {
+			controller.setSkyMode(btn.dataset.mode);
+			for (const b of el['sky-mode-toggle'].querySelectorAll('.sky-mode-btn')) {
+				b.classList.toggle('active', b.dataset.mode === btn.dataset.mode);
+			}
+		});
+	}
+
+	// Preset dropdown
+	el['sky-preset'].addEventListener('change', () => {
+		const v = el['sky-preset'].value;
+		if (v === 'custom') return;
+		const { lat, lon } = JSON.parse(v);
+		el['sky-lat'].value = (lat * DEG_PER_RAD).toFixed(4);
+		el['sky-lon'].value = (lon * DEG_PER_RAD).toFixed(4);
+		controller.setObserverLocation(lat, lon);
+	});
+
+	// Manual lat/lon
+	function onLatLonInput() {
+		const lat = parseFloat(el['sky-lat'].value) / DEG_PER_RAD;
+		const lon = parseFloat(el['sky-lon'].value) / DEG_PER_RAD;
+		if (!isFinite(lat) || !isFinite(lon)) return;
+		el['sky-preset'].value = 'custom';
+		controller.setObserverLocation(lat, lon);
+	}
+	el['sky-lat'].addEventListener('input', onLatLonInput);
+	el['sky-lon'].addEventListener('input', onLatLonInput);
+
+	// Save preset
+	el['btn-save-preset'].addEventListener('click', () => {
+		const name = prompt('Preset name:');
+		if (!name || !name.trim()) return;
+		controller.saveLocationPreset(name.trim());
+		populatePresets();
+		// Select the newly added preset
+		const sel = el['sky-preset'];
+		sel.value = JSON.stringify({
+			lat: controller.skyState.observer.lat,
+			lon: controller.skyState.observer.lon,
+		});
+	});
+
+	// Date picker
+	el['sky-date'].addEventListener('change', () => {
+		el['sky-time-live'].checked = false;
+		controller.skyState.timeLocked = true;
+		const parts = el['sky-date'].value.split('-').map(Number);
+		if (parts.length !== 3 || parts.some(isNaN)) return;
+		const d = new Date(controller.skyState.observer.utcMs);
+		d.setUTCFullYear(parts[0], parts[1] - 1, parts[2]);
+		controller.setObserverTime(d.getTime());
+	});
+
+	// Time-of-day slider
+	el['sky-time-slider'].addEventListener('input', () => {
+		el['sky-time-live'].checked = false;
+		controller.skyState.timeLocked = true;
+		const secs = parseInt(el['sky-time-slider'].value, 10);
+		const d = new Date(controller.skyState.observer.utcMs);
+		d.setUTCHours(Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60, 0);
+		const hh = String(Math.floor(secs / 3600)).padStart(2, '0');
+		const mm = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+		const ss = String(secs % 60).padStart(2, '0');
+		el['sky-time-readout'].textContent = `${hh}:${mm}:${ss}`;
+		controller.setObserverTime(d.getTime());
+	});
+
+	// Live checkbox
+	el['sky-time-live'].addEventListener('change', () => {
+		controller.skyState.timeLocked = !el['sky-time-live'].checked;
+		if (!controller.skyState.timeLocked) {
+			controller.setObserverTime(Date.now());
+			syncSkyTime();
+		}
+	});
+
+	// Initialize sky section from current observer state
+	populatePresets();
+	const obs0 = controller.skyState.observer;
+	el['sky-lat'].value = (obs0.lat * DEG_PER_RAD).toFixed(4);
+	el['sky-lon'].value = (obs0.lon * DEG_PER_RAD).toFixed(4);
+	syncSkyTime();
+
 	return {
 		showNoSelection,
 		showSelection,
@@ -352,5 +472,6 @@ export function createUI(controller) {
 		setGridVisible,
 		setCatalogLoaded,
 		focusName: () => el['f-name'].focus(),
+		syncSkyTime,
 	};
 }

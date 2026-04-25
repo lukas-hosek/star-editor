@@ -161,7 +161,7 @@ export function unproject(cam, nx, ny) {
 
 
 // Orthonormalize the basis (call periodically to avoid floating-point drift).
-function reorthonormalize(cam) {
+export function reorthonormalize(cam) {
 	cam.fwd = normalize(cam.fwd);
 	// Make right perpendicular to fwd
 	cam.right = normalize(sub(cam.right, scale(cam.fwd, dot(cam.right, cam.fwd))));
@@ -188,6 +188,26 @@ export function lookAt(cam, ra, dec) {
 	cam.right = [Math.sin(ra), Math.cos(ra), 0];
 	cam.up = cross(cam.fwd, cam.right);
 	reorthonormalize(cam);
+}
+
+
+// Orient camera to a given altitude/azimuth in the local horizon frame,
+// keeping up aligned with the zenith (no roll). Used when entering Local mode.
+// alt: altitude in radians, az: azimuth in radians (clockwise from North).
+// zenith: world-space unit vector pointing to the observer's zenith.
+export function lookAtAltAz(cam, alt, az, zenith) {
+	// Project world-Z (celestial north pole) onto the plane perpendicular to zenith
+	// to get the "north" direction in the horizon frame.
+	const Z = [0, 0, 1];
+	let northLocal = normalize(sub(Z, scale(zenith, zenith[2])));
+	if (!isFinite(northLocal[0])) northLocal = [1, 0, 0]; // degenerate at geographic pole
+	const eastLocal = normalize(cross(zenith, northLocal));
+	const ca = Math.cos(alt), sa = Math.sin(alt), cz = Math.cos(az), sz = Math.sin(az);
+	cam.fwd = normalize(add(add(scale(northLocal, ca * cz), scale(eastLocal, ca * sz)), scale(zenith, sa)));
+	const rawRight = cross(zenith, cam.fwd);
+	const rLen = Math.hypot(rawRight[0], rawRight[1], rawRight[2]);
+	cam.right = rLen < 1e-6 ? eastLocal : scale(rawRight, 1 / rLen);
+	cam.up = cross(cam.fwd, cam.right);
 }
 
 
@@ -226,6 +246,36 @@ export function panTo(cam, pixelX, pixelY, wFrom) {
 	const [nx, ny] = pixelToNDC(cam, pixelX, pixelY);
 	const wTo = unproject(cam, nx, ny);
 	rotateCamera(cam, wTo, wFrom);
+}
+
+
+// Pan with no-roll constraint: after rotating, re-anchor right/up to the zenith
+// plane so the camera never rolls. Used in Local mode.
+export function panToConstrained(cam, pixelX, pixelY, wFrom, zenith) {
+	const [nx, ny] = pixelToNDC(cam, pixelX, pixelY);
+	const wTo = unproject(cam, nx, ny);
+	rotateCamera(cam, wTo, wFrom);
+	const rawRight = cross(zenith, cam.fwd);
+	const rLen = Math.hypot(rawRight[0], rawRight[1], rawRight[2]);
+	if (rLen < 1e-6) return; // looking directly at/away from zenith — skip constraint
+	cam.right = [rawRight[0] / rLen, rawRight[1] / rLen, rawRight[2] / rLen];
+	cam.up = cross(cam.fwd, cam.right);
+}
+
+
+// Decompose the camera's look direction into altitude/azimuth in the local
+// horizon frame defined by zenith.  Returns { alt, az } in radians;
+// alt ∈ [-π/2, π/2], az clockwise from North (matching lookAtAltAz).
+export function fwdToAltAz(cam, zenith) {
+	const alt = Math.asin(Math.max(-1, Math.min(1, dot(cam.fwd, zenith))));
+	const Z = [0, 0, 1];
+	let northLocal = normalize(sub(Z, scale(zenith, zenith[2])));
+	if (!isFinite(northLocal[0])) northLocal = [1, 0, 0];
+	const eastLocal = normalize(cross(zenith, northLocal));
+	return {
+		alt,
+		az: Math.atan2(dot(cam.fwd, eastLocal), dot(cam.fwd, northLocal)),
+	};
 }
 
 

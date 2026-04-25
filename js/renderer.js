@@ -2,7 +2,7 @@
 // (from Vmag). A single draw call renders all stars; an extra call renders a
 // selection ring on top.
 
-import { ndcToPixel, project, sphereDir } from './camera.js';
+import { add, cross, ndcToPixel, normalize, project, scale, sphereDir, sub } from './camera.js';
 
 const DEG = Math.PI / 180;
 const GRID_RA_STEP = 30 * DEG;
@@ -17,12 +17,22 @@ const GRID_LABELS = [
 const GRID_LINE_COLOR = 'rgba(126, 150, 182, 0.24)';
 const GRID_EQUATOR_COLOR = 'rgba(146, 172, 206, 0.34)';
 const GRID_TEXT_COLOR = 'rgba(204, 214, 230, 0.72)';
+const ALTAZ_LINE_COLOR = 'rgba(186, 164, 112, 0.26)';
+const ALTAZ_HORIZON_COLOR = 'rgba(224, 194, 132, 0.42)';
+const ALTAZ_TEXT_COLOR = 'rgba(237, 223, 178, 0.76)';
+const ALTAZ_CARDINAL_LABELS = [
+	{ text: 'N', az: 0 },
+	{ text: 'E', az: 90 * DEG },
+	{ text: 'S', az: 180 * DEG },
+	{ text: 'W', az: 270 * DEG },
+];
 const STAR_POINT_SIZE = 2.0;
 
 const STAR_VS = `#version 300 es
 in vec3 aPos;
 in vec3 aColor;
 in float aFlux;
+in float aAlt;
 uniform vec3 uRight;
 uniform vec3 uUp;
 uniform vec3 uFwd;
@@ -31,6 +41,8 @@ uniform float uAspectX;
 uniform float uAspectY;
 uniform float uBrightness;
 uniform float uPointSize;
+uniform int uHorizonMode;
+uniform float uDimFactor;
 out vec3 vColor;
 void main() {
   float xc = dot(aPos, uRight);
@@ -42,13 +54,20 @@ void main() {
     vColor = vec3(0.0);
     return;
   }
+  if (uHorizonMode == 2 && aAlt < 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    vColor = vec3(0.0);
+    return;
+  }
   float k = 1.0 / (1.0 + zc);
   float sx = xc * k;
   float sy = yc * k;
   gl_Position = vec4(sx / (uTanHalfFov * uAspectX),
                      sy / (uTanHalfFov * uAspectY),
                      0.0, 1.0);
-  float intensity = aFlux * uBrightness;
+  float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
+  float intensity = aFlux * uBrightness * dimMult;
   vColor = aColor * intensity;
   gl_PointSize = uPointSize;
 }
@@ -106,6 +125,41 @@ void main() {
 }
 `;
 
+const GROUND_VS = `#version 300 es
+in vec2 aPos;
+out vec2 vNDC;
+void main() {
+  vNDC = aPos;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}
+`;
+
+const GROUND_FS = `#version 300 es
+precision highp float;
+in vec2 vNDC;
+uniform vec3 uRight;
+uniform vec3 uUp;
+uniform vec3 uFwd;
+uniform float uTanHalfFov;
+uniform float uAspectX;
+uniform float uAspectY;
+uniform vec3 uZenith;
+out vec4 fragColor;
+void main() {
+  float sx = vNDC.x * uTanHalfFov * uAspectX;
+  float sy = vNDC.y * uTanHalfFov * uAspectY;
+  float r2 = sx * sx + sy * sy;
+  float inv = 1.0 / (1.0 + r2);
+  vec3 camDir = vec3(2.0 * sx, 2.0 * sy, 1.0 - r2) * inv;
+  vec3 worldDir = camDir.x * uRight + camDir.y * uUp + camDir.z * uFwd;
+  float altitude = dot(worldDir, uZenith);
+  float fade = smoothstep(0.0, -0.02, altitude);
+  if (fade <= 0.0) discard;
+  float g = 0.05 * fade;
+  fragColor = vec4(g, g, g, 1.0);
+}
+`;
+
 function compile(gl, type, src) {
 	const sh = gl.createShader(type);
 	gl.shaderSource(sh, src);
@@ -160,19 +214,25 @@ export function createRenderer(canvas, overlayCanvas) {
 
 	const starProg = link(gl, STAR_VS, STAR_FS);
 	const ringProg = link(gl, RING_VS, RING_FS);
+	const groundProg = link(gl, GROUND_VS, GROUND_FS);
 
 	const starU = uniforms(gl, starProg, [
-		'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize']);
+		'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
+		'uHorizonMode', 'uDimFactor']);
 	const ringU = uniforms(gl, ringProg, [
 		'uPos', 'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uPointSize']);
+	const groundU = uniforms(gl, groundProg, [
+		'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uZenith']);
 
 	const aPosLoc = gl.getAttribLocation(starProg, 'aPos');
 	const aColorLoc = gl.getAttribLocation(starProg, 'aColor');
 	const aFluxLoc = gl.getAttribLocation(starProg, 'aFlux');
+	const aAltLoc = gl.getAttribLocation(starProg, 'aAlt');
 
 	const posBuf = gl.createBuffer();
 	const colBuf = gl.createBuffer();
 	const fluxBuf = gl.createBuffer();
+	const altBuf = gl.createBuffer();
 
 	const vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
@@ -185,9 +245,23 @@ export function createRenderer(canvas, overlayCanvas) {
 	gl.bindBuffer(gl.ARRAY_BUFFER, fluxBuf);
 	gl.enableVertexAttribArray(aFluxLoc);
 	gl.vertexAttribPointer(aFluxLoc, 1, gl.FLOAT, false, 0, 0);
+	gl.bindBuffer(gl.ARRAY_BUFFER, altBuf);
+	gl.enableVertexAttribArray(aAltLoc);
+	gl.vertexAttribPointer(aAltLoc, 1, gl.FLOAT, false, 0, 0);
 	gl.bindVertexArray(null);
 
 	const ringVAO = gl.createVertexArray();  // empty VAO for the ring
+
+	const groundQuadBuf = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, groundQuadBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+	const groundVAO = gl.createVertexArray();
+	gl.bindVertexArray(groundVAO);
+	gl.bindBuffer(gl.ARRAY_BUFFER, groundQuadBuf);
+	const aPosLocGround = gl.getAttribLocation(groundProg, 'aPos');
+	gl.enableVertexAttribArray(aPosLocGround);
+	gl.vertexAttribPointer(aPosLocGround, 2, gl.FLOAT, false, 0, 0);
+	gl.bindVertexArray(null);
 
 	const r = {
 		gl, canvas,
@@ -195,18 +269,24 @@ export function createRenderer(canvas, overlayCanvas) {
 		overlayCtx,
 		starProg, starU,
 		ringProg, ringU,
-		posBuf, colBuf, fluxBuf, vao, ringVAO,
+		groundProg, groundU, groundVAO,
+		posBuf, colBuf, fluxBuf, altBuf, vao, ringVAO,
 
 		posCPU: new Float32Array(0),
 		colCPU: new Float32Array(0),
 		fluxCPU: new Float32Array(0),
+		altCPU: new Float32Array(0),
 		capacity: 0,
 		count: 0,
 
 		brightness: 1.0,
 		pointSize: STAR_POINT_SIZE,
 		gridVisible: false,
+		altAzGridVisible: false,
 		overlayScale: 1,
+		horizonMode: 0,
+		dimFactor: 0.18,
+		zenith: null,
 	};
 
 	gl.clearColor(0, 0, 0, 1);
@@ -222,13 +302,15 @@ function ensureCapacity(r, n) {
 	if (n <= r.capacity) return;
 	let cap = Math.max(16, r.capacity);
 	while (cap < n) cap *= 2;
-	const oldPos = r.posCPU, oldCol = r.colCPU, oldFlx = r.fluxCPU;
+	const oldPos = r.posCPU, oldCol = r.colCPU, oldFlx = r.fluxCPU, oldAlt = r.altCPU;
 	r.posCPU = new Float32Array(cap * 3);
 	r.colCPU = new Float32Array(cap * 3);
 	r.fluxCPU = new Float32Array(cap);
+	r.altCPU = new Float32Array(cap);
 	r.posCPU.set(oldPos);
 	r.colCPU.set(oldCol);
 	r.fluxCPU.set(oldFlx);
+	r.altCPU.set(oldAlt);
 	r.capacity = cap;
 	// Resize GL buffers (DYNAMIC_DRAW, we'll fill next).
 	const { gl } = r;
@@ -238,6 +320,8 @@ function ensureCapacity(r, n) {
 	gl.bufferData(gl.ARRAY_BUFFER, r.colCPU.byteLength, gl.DYNAMIC_DRAW);
 	gl.bindBuffer(gl.ARRAY_BUFFER, r.fluxBuf);
 	gl.bufferData(gl.ARRAY_BUFFER, r.fluxCPU.byteLength, gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, r.altBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, r.altCPU.byteLength, gl.DYNAMIC_DRAW);
 }
 
 
@@ -334,6 +418,34 @@ export function setGridVisible(r, visible) {
 }
 
 
+export function setAltAzGridVisible(r, visible) {
+	r.altAzGridVisible = !!visible;
+}
+
+
+export function setHorizonMode(r, mode, dimFactor) {
+	r.horizonMode = mode;
+	if (dimFactor !== undefined) r.dimFactor = dimFactor;
+}
+
+
+export function setZenith(r, zenith) {
+	r.zenith = zenith;
+}
+
+
+// Upload per-star altitudes (Float32Array, radians) to the GPU.
+// Called each frame when horizonMode > 0.
+export function setAltitudes(r, altitudes) {
+	const n = Math.min(altitudes.length, r.count);
+	if (n === 0) return;
+	r.altCPU.set(altitudes.subarray(0, n));
+	const { gl } = r;
+	gl.bindBuffer(gl.ARRAY_BUFFER, r.altBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, 0, r.altCPU.subarray(0, n));
+}
+
+
 // Resize the backing framebuffer to match device-pixel viewport.
 export function resize(r, cssWidth, cssHeight, dpr) {
 	const w = Math.max(1, Math.floor(cssWidth * dpr));
@@ -358,6 +470,34 @@ function projectGridPoint(camera, ra, dec) {
 	const pad = 96;
 	if (px < -pad || px > camera.width + pad || py < -pad || py > camera.height + pad) return null;
 	return [px, py];
+}
+
+
+function projectWorldPoint(camera, worldDir) {
+	const p = project(camera, worldDir);
+	if (!Number.isFinite(p.nx) || !Number.isFinite(p.ny) || p.zc < -0.18) return null;
+	const [px, py] = ndcToPixel(camera, p.nx, p.ny);
+	const pad = 96;
+	if (px < -pad || px > camera.width + pad || py < -pad || py > camera.height + pad) return null;
+	return [px, py];
+}
+
+
+function horizonBasis(zenith) {
+	const worldNorth = [0, 0, 1];
+	let north = normalize(sub(worldNorth, scale(zenith, zenith[2])));
+	if (!isFinite(north[0])) north = [1, 0, 0];
+	const east = normalize(cross(zenith, north));
+	return { north, east };
+}
+
+
+function altAzWorldDir(zenith, north, east, alt, az) {
+	const ca = Math.cos(alt);
+	const sa = Math.sin(alt);
+	const cz = Math.cos(az);
+	const sz = Math.sin(az);
+	return normalize(add(add(scale(north, ca * cz), scale(east, ca * sz)), scale(zenith, sa)));
 }
 
 
@@ -404,24 +544,101 @@ function drawGridLabels(r, camera) {
 }
 
 
+function strokeAltAzCurve(ctx, camera, pointAt, start, end, step) {
+	ctx.beginPath();
+	let segmentOpen = false;
+	for (let t = start; t <= end + step * 0.5; t += step) {
+		const worldDir = pointAt(Math.min(t, end));
+		const pixel = projectWorldPoint(camera, worldDir);
+		if (!pixel) {
+			segmentOpen = false;
+			continue;
+		}
+		if (!segmentOpen) {
+			ctx.moveTo(pixel[0], pixel[1]);
+			segmentOpen = true;
+		}
+		else {
+			ctx.lineTo(pixel[0], pixel[1]);
+		}
+	}
+	ctx.stroke();
+}
+
+
+function drawAltAzLabels(r, camera, zenith, north, east) {
+	const ctx = r.overlayCtx;
+	ctx.font = '11px system-ui, sans-serif';
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillStyle = ALTAZ_TEXT_COLOR;
+	ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+	ctx.shadowBlur = 6;
+
+	for (const label of ALTAZ_CARDINAL_LABELS) {
+		const worldDir = altAzWorldDir(zenith, north, east, 0, label.az);
+		const pixel = projectWorldPoint(camera, worldDir);
+		if (!pixel) continue;
+		const x = Math.max(20, Math.min(camera.width - 20, pixel[0]));
+		const y = Math.max(14, Math.min(camera.height - 14, pixel[1] - 10));
+		ctx.fillText(label.text, x, y);
+	}
+
+	ctx.shadowBlur = 0;
+}
+
+
+function drawAltAzOverlay(r, camera) {
+	if (!r.altAzGridVisible || !r.zenith) return;
+
+	const ctx = r.overlayCtx;
+	const { north, east } = horizonBasis(r.zenith);
+
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = ALTAZ_LINE_COLOR;
+	for (let az = 0; az < 2 * Math.PI - GRID_RA_STEP * 0.5; az += GRID_RA_STEP) {
+		strokeAltAzCurve(ctx, camera,
+			(alt) => altAzWorldDir(r.zenith, north, east, alt, az),
+			-Math.PI / 2,
+			Math.PI / 2,
+			GRID_SAMPLE_STEP);
+	}
+
+	for (let alt = -60 * DEG; alt <= 60 * DEG + GRID_DEC_STEP * 0.5; alt += GRID_DEC_STEP) {
+		ctx.strokeStyle = Math.abs(alt) < 1e-6 ? ALTAZ_HORIZON_COLOR : ALTAZ_LINE_COLOR;
+		strokeAltAzCurve(ctx, camera,
+			(az) => altAzWorldDir(r.zenith, north, east, alt, az),
+			0,
+			2 * Math.PI,
+			GRID_SAMPLE_STEP);
+	}
+
+	drawAltAzLabels(r, camera, r.zenith, north, east);
+}
+
+
 function drawGridOverlay(r, camera) {
 	const ctx = r.overlayCtx;
 	ctx.setTransform(r.overlayScale, 0, 0, r.overlayScale, 0, 0);
 	ctx.clearRect(0, 0, camera.width, camera.height);
-	if (!r.gridVisible) return;
+	if (!r.gridVisible && !r.altAzGridVisible) return;
 
-	ctx.lineWidth = 1;
-	ctx.strokeStyle = GRID_LINE_COLOR;
-	for (let ra = 0; ra < 2 * Math.PI - GRID_RA_STEP * 0.5; ra += GRID_RA_STEP) {
-		strokeGridCurve(ctx, camera, (dec) => [ra, dec], -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
+	if (r.gridVisible) {
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = GRID_LINE_COLOR;
+		for (let ra = 0; ra < 2 * Math.PI - GRID_RA_STEP * 0.5; ra += GRID_RA_STEP) {
+			strokeGridCurve(ctx, camera, (dec) => [ra, dec], -Math.PI / 2, Math.PI / 2, GRID_SAMPLE_STEP);
+		}
+
+		for (let dec = -60 * DEG; dec <= 60 * DEG + GRID_DEC_STEP * 0.5; dec += GRID_DEC_STEP) {
+			ctx.strokeStyle = Math.abs(dec) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
+			strokeGridCurve(ctx, camera, (ra) => [ra, dec], 0, 2 * Math.PI, GRID_SAMPLE_STEP);
+		}
+
+		drawGridLabels(r, camera);
 	}
 
-	for (let dec = -60 * DEG; dec <= 60 * DEG + GRID_DEC_STEP * 0.5; dec += GRID_DEC_STEP) {
-		ctx.strokeStyle = Math.abs(dec) < 1e-6 ? GRID_EQUATOR_COLOR : GRID_LINE_COLOR;
-		strokeGridCurve(ctx, camera, (ra) => [ra, dec], 0, 2 * Math.PI, GRID_SAMPLE_STEP);
-	}
-
-	drawGridLabels(r, camera);
+	drawAltAzOverlay(r, camera);
 }
 
 
@@ -431,6 +648,21 @@ export function render(r, camera, selectedStar) {
 
 	const tanHalf = Math.tan(camera.fov / 2);
 	const { ax, ay } = aspectScales(camera.width, camera.height);
+
+	// Ground fill (below-horizon region)
+	if (r.horizonMode > 0 && r.zenith) {
+		gl.useProgram(r.groundProg);
+		gl.bindVertexArray(r.groundVAO);
+		gl.uniform3f(r.groundU.uRight, camera.right[0], camera.right[1], camera.right[2]);
+		gl.uniform3f(r.groundU.uUp, camera.up[0], camera.up[1], camera.up[2]);
+		gl.uniform3f(r.groundU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
+		gl.uniform1f(r.groundU.uTanHalfFov, tanHalf);
+		gl.uniform1f(r.groundU.uAspectX, ax);
+		gl.uniform1f(r.groundU.uAspectY, ay);
+		gl.uniform3f(r.groundU.uZenith, r.zenith[0], r.zenith[1], r.zenith[2]);
+		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		gl.bindVertexArray(null);
+	}
 
 	// Stars
 	gl.useProgram(r.starProg);
@@ -443,6 +675,8 @@ export function render(r, camera, selectedStar) {
 	gl.uniform1f(r.starU.uAspectY, ay);
 	gl.uniform1f(r.starU.uBrightness, r.brightness);
 	gl.uniform1f(r.starU.uPointSize, r.pointSize);
+	gl.uniform1i(r.starU.uHorizonMode, r.horizonMode);
+	gl.uniform1f(r.starU.uDimFactor, r.dimFactor);
 	gl.drawArrays(gl.POINTS, 0, r.count);
 	gl.bindVertexArray(null);
 

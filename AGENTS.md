@@ -47,6 +47,13 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Sky/observer state: `skyState` in `js/app.js`
 - Sidereal time and horizon math: `js/sky.js`
 
+## Grid overlays
+
+- Toolbar toggles live in `index.html` as `#btn-grid` and `#btn-altaz-grid`; DOM wiring is in `createUI()` in `js/ui.js`.
+- Overlay visibility flags live in `state.showGrid` and `state.showAltAzGrid` in `js/app.js`, then flow through `controller.setGridVisible()` / `controller.setAltAzGridVisible()` into `js/renderer.js`.
+- Both overlays are drawn onto the shared 2D overlay canvas `#sky-grid` in `js/renderer.js`.
+- The Alt/Az grid uses the observer horizon basis derived from `skyState.observer.zenithWorld`, so `frame()` updates observer state whenever horizon rendering or the Alt/Az overlay needs it, including All-sky mode.
+
 ## View modes
 
 There are three view modes, toggled by a segmented button in the toolbar (`#sky-mode-toggle`) and owned by `skyState.mode` in `js/app.js`.
@@ -65,6 +72,11 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - `frame()` in `js/app.js` checks `skyState.needsAltUpdate` before rendering
 - `needsAltUpdate` is set to `true` by: mode change, location change, time change, catalog load
 - A 10-second `setInterval` advances `skyState.observer.utcMs` to `Date.now()` unless `skyState.timeLocked` is set (live checkbox in UI)
+
+**Preserving viewport alt/az across time changes (Local mode):**
+- When time changes (`setObserverTime` or the 10-s interval), the current center alt/az is captured via `fwdToAltAz` (using the old zenith) and stored in `skyState.savedAlt/savedAz`, with `skyState.preserveAltAz = true`.
+- In `frame()`, immediately after `updateObserver` delivers the new zenith, if `preserveAltAz` is set the camera is re-oriented to the saved alt/az via `lookAtAltAz`, then the flag is cleared.
+- Location changes and mode switches do NOT set the flag, so those keep their existing reset-to-0/0 behaviour.
 
 ## Git
 
