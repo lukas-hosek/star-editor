@@ -367,14 +367,17 @@ main {
 .row-inline input[type=checkbox] { width: auto; display: inline; margin: 0; }
 
 #banner {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  max-width: min(420px, calc(100% - 24px));
+  pointer-events: none;
   background: var(--danger);
   color: #000;
-  padding: 14px 22px;
+  padding: 10px 14px;
   border-radius: 6px;
   font-weight: 600;
+  line-height: 1.4;
   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
 }

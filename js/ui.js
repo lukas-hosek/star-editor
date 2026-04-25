@@ -133,6 +133,7 @@ async function pickOpenFallback(input) {
 // ---------- UI object ----------
 export function createUI(controller) {
 	const el = {};
+	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
@@ -148,15 +149,15 @@ export function createUI(controller) {
 	for (const id of ids) el[id] = document.getElementById(id);
 	const openFallbackInput = createOpenFallbackInput();
 
-	if (!canUseFileSystemAccess()) {
-		el['banner'].textContent = 'Open uses a standard file chooser here. Save As still requires a secure Chromium-based browser or localhost.';
+	if (!supportsFileSystemAccess) {
+		el['banner'].textContent = 'Non-Chromium browser. Save is disabled.';
 		el['banner'].classList.remove('hidden');
 	}
 
 	// ---------- toolbar ----------
 	el['btn-open'].addEventListener('click', async () => {
 		try {
-			const selection = canUseFileSystemAccess()
+			const selection = supportsFileSystemAccess
 				? await (async () => {
 					const handle = await pickOpen();
 					const file = await handle.getFile();
@@ -349,8 +350,8 @@ export function createUI(controller) {
 
 
 	function setCatalogLoaded(loaded) {
-		el['btn-save'].disabled = !loaded;
-		el['btn-save-as'].disabled = !loaded;
+		el['btn-save'].disabled = !loaded || !supportsFileSystemAccess;
+		el['btn-save-as'].disabled = !loaded || !supportsFileSystemAccess;
 		el['btn-add'].disabled = !loaded;
 		el['btn-move'].disabled = !loaded;
 	}
