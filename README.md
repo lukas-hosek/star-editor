@@ -54,7 +54,3 @@ Each parsed star stores:
 - preservation helpers: `_raw` for original record bytes and `_edited` to decide whether serialization should pass through or rewrite the row
 
 This is why serializer changes should be made carefully: untouched records intentionally round-trip without reformatting.
-
-## Verification constraints
-
-This repository should be verified without Node.js. Prefer browser-based manual checks and lightweight static inspection over npm, bundlers, or Node-backed test runners.
