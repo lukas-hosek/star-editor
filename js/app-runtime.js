@@ -36,6 +36,8 @@ export function startAppRuntime(options)
 			if (needsObserverState() && skyState.needsAltUpdate)
 			{
 				updateObserver(skyState.observer);
+				// In Local mode, time changes should move the sky while keeping the current
+				// alt/az view centered, so restore the saved orientation after zenith updates.
 				if (skyState.preserveAltAz && skyState.mode === 'local')
 				{
 					lookAtAltAz(camera, skyState.savedAlt, skyState.savedAz, skyState.observer.zenithWorld);

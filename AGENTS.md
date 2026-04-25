@@ -37,6 +37,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 - Allman braces throughout all `.js` files: opening `{` on its own line, at the same indentation level as the preceding statement.
 - Two blank lines between function declarations (top-level and nested).
 - Indentation: tabs, width 4. Configured in `.vscode/settings.json`.
+- Prefer descriptive variable names; avoid terse names unless the scope is trivially obvious.
+- Add brief comments for non-trivial control flow, math, state transitions, or data-shape assumptions when the intent would otherwise require re-reading the code.
 
 ## Project-specific rules
 

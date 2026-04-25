@@ -180,6 +180,8 @@ function uniforms(gl, program, names)
 
 function aspectScales(width, height)
 {
+	// Keep the stereographic projection circular regardless of viewport shape by scaling
+	// only the longer screen axis.
 	return width < height
 		? { aspectX: 1, aspectY: height / width }
 		: { aspectX: width / height, aspectY: 1 };
@@ -239,6 +241,8 @@ export function drawRenderPipeline(renderer, camera, selectedStar)
 
 	if (renderer.horizonMode > 0 && renderer.zenith)
 	{
+		// The ground pass shades a full-screen quad, then discards any fragment whose
+		// unprojected world direction ends up above the current horizon.
 		gl.useProgram(renderer.groundProg);
 		gl.bindVertexArray(renderer.groundVAO);
 		gl.uniform3f(renderer.groundU.uRight, camera.right[0], camera.right[1], camera.right[2]);

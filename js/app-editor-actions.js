@@ -122,6 +122,8 @@ export function createEditorActions(options)
 		ui.setAltAzGridVisible(state.showAltAzGrid);
 		if (state.showAltAzGrid)
 		{
+			// When live time is enabled, refresh to "now" before the next altitude update so
+			// the newly shown horizon grid does not render against stale observer time.
 			if (!skyState.timeLocked)
 			{
 				skyState.observer.utcMs = Date.now();
@@ -161,6 +163,8 @@ export function createEditorActions(options)
 	{
 		const ui = getUI();
 		const { ra, dec } = pixelToRADec(camera, px, py);
+		// New stars get the next available HR so selection and save/load round-trips keep
+		// a stable catalog identifier even for freshly added records.
 		const nextHR = state.stars.reduce((highestHR, star) => Math.max(highestHR, star.HR || 0), 0) + 1;
 		const star = makeNewStar({ ra, dec, HR: nextHR });
 		state.stars.push(star);
@@ -179,6 +183,8 @@ export function createEditorActions(options)
 		const ui = getUI();
 		if (index < 0 || index >= state.stars.length) return;
 		const lastIndex = state.stars.length - 1;
+		// App state and GPU buffers both use swap-and-pop removal, so keep the arrays dense
+		// and let removeAt() mirror the same replacement on the renderer side.
 		if (index !== lastIndex) state.stars[index] = state.stars[lastIndex];
 		state.stars.pop();
 		removeAt(renderer, index, state.stars);
