@@ -128,10 +128,12 @@ export function createUI(controller) {
 		}
 	});
 
-	el['btn-save'].addEventListener('click', async () => {
+	// Common save path. `forceNewHandle` is true for Save-As; Save reuses an
+	// existing FSA handle when one is available.
+	async function performSave(forceNewHandle) {
 		try {
 			const text = controller.serialize();
-			if (controller.fileHandle) {
+			if (!forceNewHandle && controller.fileHandle) {
 				await writeHandle(controller.fileHandle, text);
 				controller.fileName = controller.fileHandle.name || controller.fileName;
 			}
@@ -151,28 +153,10 @@ export function createUI(controller) {
 		catch (err) {
 			if (err.name !== 'AbortError') console.error(err);
 		}
-	});
+	}
 
-	el['btn-save-as'].addEventListener('click', async () => {
-		try {
-			const text = controller.serialize();
-			if (supportsFileSystemAccess) {
-				const handle = await pickSave(normalizeCatalogName(controller.fileName));
-				await writeHandle(handle, text);
-				controller.fileHandle = handle;
-				controller.fileName = handle.name || controller.fileName;
-			}
-			else {
-				const downloadName = normalizeCatalogName(controller.fileName);
-				downloadCatalog(text, downloadName);
-				controller.fileName = downloadName;
-			}
-			controller.markSaved();
-		}
-		catch (err) {
-			if (err.name !== 'AbortError') console.error(err);
-		}
-	});
+	el['btn-save'].addEventListener('click', () => performSave(false));
+	el['btn-save-as'].addEventListener('click', () => performSave(true));
 
 	el['btn-add'].addEventListener('click', () => {
 		controller.setAddMode(!controller.addMode);

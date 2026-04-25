@@ -1,5 +1,7 @@
 // Astronomical math: sidereal time, altitude computation, observer state, and location presets.
 
+import { fwdToAltAz } from './camera.js';
+
 const DEG = Math.PI / 180;
 const DEFAULT_LOCATION_PRESET_NAME = 'CZE - Prague';
 
@@ -75,7 +77,11 @@ export const LOCATION_PRESETS = [
 ];
 
 export function createObserver() {
-	const defaultPreset = LOCATION_PRESETS.find((preset) => preset.name === DEFAULT_LOCATION_PRESET_NAME) || LOCATION_PRESETS[0];
+	let defaultPreset = LOCATION_PRESETS.find((preset) => preset.name === DEFAULT_LOCATION_PRESET_NAME);
+	if (!defaultPreset) {
+		console.warn(`createObserver: default preset '${DEFAULT_LOCATION_PRESET_NAME}' not found, falling back to '${LOCATION_PRESETS[0].name}'.`);
+		defaultPreset = LOCATION_PRESETS[0];
+	}
 	return {
 		lat: defaultPreset.lat,
 		lon: defaultPreset.lon,
@@ -92,7 +98,9 @@ export function gmstRadians(utcMs) {
 }
 
 export function lstRadians(utcMs, lonRad) {
-	return (gmstRadians(utcMs) + lonRad + 4 * Math.PI) % (2 * Math.PI);
+	// gmst ∈ [0, 2π); lonRad ∈ [-π, π]; add 2π to keep the sum non-negative
+	// before the final wrap (JS % preserves sign of the dividend).
+	return (gmstRadians(utcMs) + lonRad + 2 * Math.PI) % (2 * Math.PI);
 }
 
 // Altitude of a star in radians given observer lat, Local Sidereal Time, and star RA/Dec.
@@ -111,6 +119,19 @@ export function zenithDir(lat, lst) {
 	const cd = Math.cos(lat);
 	return [cd * Math.cos(lst), -cd * Math.sin(lst), Math.sin(lat)];
 }
+
+// Snapshot the camera's current center alt/az into skyState so the next
+// frame can restore it after the zenith updates. Local mode only — other
+// modes don't preserve alt/az across observer changes.
+export function captureAltAzForRestore(skyState, camera)
+{
+	if (skyState.mode !== 'local') return;
+	const { alt, az } = fwdToAltAz(camera, skyState.observer.zenithWorld);
+	skyState.savedAlt = alt;
+	skyState.savedAz = az;
+	skyState.preserveAltAz = true;
+}
+
 
 // Recompute derived fields (lst, zenithWorld) from observer's utcMs + lon/lat.
 export function updateObserver(obs) {

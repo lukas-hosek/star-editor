@@ -11,6 +11,9 @@
 // Stereographic is conformal and well-defined for every camera-frame direction
 // except the antipode (zc = -1). It matches Stellarium's default feel.
 
+const MIN_FOV = 0.1 * Math.PI / 180;   // 0.1°
+const MAX_FOV = 179 * Math.PI / 180;   // 179°
+
 // ---------- vector helpers ----------
 export function v3(x, y, z) {
 	return [x, y, z];
@@ -255,8 +258,6 @@ export function ndcToPixel(cam, nx, ny) {
 export function zoomAt(cam, pixelX, pixelY, factor) {
 	const [nx, ny] = pixelToNDC(cam, pixelX, pixelY);
 	const wBefore = unproject(cam, nx, ny);
-	const MIN_FOV = 0.1 * Math.PI / 180;   // 0.1°
-	const MAX_FOV = 179 * Math.PI / 180;   // 179°
 	cam.fov = Math.max(MIN_FOV, Math.min(MAX_FOV, cam.fov * factor));
 	const wAfter = unproject(cam, nx, ny);
 	rotateCamera(cam, wAfter, wBefore);

@@ -4,16 +4,10 @@ const HRS_PER_RAD = 12 / Math.PI;
 const DEG_PER_RAD = 180 / Math.PI;
 
 
-export function radiansToHMS(ra, secondDecimals = 1)
+// Propagate sub-unit overflow from rounded seconds → minutes → major.
+// `major` is hours (HMS) or degrees (DMS). Returns { major, m, s }.
+function carrySexagesimal(major, m, s)
 {
-	let r = ((ra % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-	const total = r * HRS_PER_RAD;
-	let h = Math.floor(total);
-	let rem = (total - h) * 60;
-	let m = Math.floor(rem);
-	let s = (rem - m) * 60;
-	const scale = Math.pow(10, secondDecimals);
-	s = Math.round(s * scale) / scale;
 	if (s >= 60)
 	{
 		s -= 60;
@@ -22,12 +16,23 @@ export function radiansToHMS(ra, secondDecimals = 1)
 	if (m >= 60)
 	{
 		m -= 60;
-		h += 1;
+		major += 1;
 	}
-	if (h >= 24)
-	{
-		h -= 24;
-	}
+	return { major, m, s };
+}
+
+
+export function radiansToHMS(ra, secondDecimals = 1)
+{
+	const r = ((ra % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+	const total = r * HRS_PER_RAD;
+	const hRaw = Math.floor(total);
+	const rem = (total - hRaw) * 60;
+	const mRaw = Math.floor(rem);
+	const scale = Math.pow(10, secondDecimals);
+	const sRaw = Math.round((rem - mRaw) * 60 * scale) / scale;
+	let { major: h, m, s } = carrySexagesimal(hRaw, mRaw, sRaw);
+	if (h >= 24) h -= 24;
 	return { h, m, s };
 }
 
@@ -35,21 +40,12 @@ export function radiansToHMS(ra, secondDecimals = 1)
 export function radiansToDMS(dec)
 {
 	const sign = dec < 0 ? '-' : '+';
-	let abs = Math.abs(dec) * DEG_PER_RAD;
-	let d = Math.floor(abs);
-	let rem = (abs - d) * 60;
-	let m = Math.floor(rem);
-	let s = Math.round((rem - m) * 60);
-	if (s >= 60)
-	{
-		s -= 60;
-		m += 1;
-	}
-	if (m >= 60)
-	{
-		m -= 60;
-		d += 1;
-	}
+	const abs = Math.abs(dec) * DEG_PER_RAD;
+	const dRaw = Math.floor(abs);
+	const rem = (abs - dRaw) * 60;
+	const mRaw = Math.floor(rem);
+	const sRaw = Math.round((rem - mRaw) * 60);
+	let { major: d, m, s } = carrySexagesimal(dRaw, mRaw, sRaw);
 	if (d > 90)
 	{
 		d = 90;

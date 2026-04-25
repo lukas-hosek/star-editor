@@ -155,16 +155,21 @@ function padSpace(w) {
 }
 
 
+function isMissingNumber(n) {
+	return n === null || n === undefined || !isFinite(n);
+}
+
+
 // Fortran I format: right-justified, space-padded.
 function fmtI(n, w) {
-	if (n === null || n === undefined || !isFinite(n)) return padSpace(w);
+	if (isMissingNumber(n)) return padSpace(w);
 	return String(Math.trunc(n)).padStart(w, ' ');
 }
 
 
 // I with zero-padded digits (e.g. "05" for minutes).
 function fmtI0(n, w) {
-	if (n === null || n === undefined || !isFinite(n)) return padSpace(w);
+	if (isMissingNumber(n)) return padSpace(w);
 	const neg = n < 0;
 	const abs = Math.abs(Math.trunc(n)).toString().padStart(w - (neg ? 1 : 0), '0');
 	return (neg ? '-' : '') + abs;
@@ -173,7 +178,7 @@ function fmtI0(n, w) {
 
 // Explicitly-signed integer with zero-padding (for RadVel: "+013", "-018").
 function fmtIsigned(n, w) {
-	if (n === null || n === undefined || !isFinite(n)) return padSpace(w);
+	if (isMissingNumber(n)) return padSpace(w);
 	const sign = n < 0 ? '-' : '+';
 	const body = Math.abs(Math.trunc(n)).toString().padStart(w - 1, '0');
 	return sign + body;
@@ -182,7 +187,7 @@ function fmtIsigned(n, w) {
 
 // Fortran F format: right-justified, space-padded.
 function fmtF(n, w, d) {
-	if (n === null || n === undefined || !isFinite(n)) return padSpace(w);
+	if (isMissingNumber(n)) return padSpace(w);
 	const s = n.toFixed(d);
 	return s.padStart(w, ' ');
 }
@@ -190,7 +195,7 @@ function fmtF(n, w, d) {
 
 // F with zero-padded integer part (for HMS/DMS seconds fields: "09.9").
 function fmtF0(n, w, d) {
-	if (n === null || n === undefined || !isFinite(n)) return padSpace(w);
+	if (isMissingNumber(n)) return padSpace(w);
 	const s = n.toFixed(d);
 	const dot = s.indexOf('.');
 	const intStr = dot < 0 ? s : s.slice(0, dot);

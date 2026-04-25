@@ -4,12 +4,13 @@ import { createCanvasInteractions } from './app-canvas-interactions.js';
 import { createEditorActions } from './app-editor-actions.js';
 import { startAppRuntime } from './app-runtime.js';
 import {
-	createCamera, lookAtAltAz, fwdToAltAz,
+	createCamera, lookAtAltAz,
 } from './camera.js';
 import {
 	createRenderer, setHorizonMode,
 } from './renderer.js';
 import {
+	captureAltAzForRestore,
 	createObserver, updateObserver,
 	loadUserPresets, saveUserPresets,
 } from './sky.js';
@@ -23,6 +24,7 @@ const DEFAULT_LOCAL_ALT = Math.PI / 3;
 
 const state = {
 	stars: [],              // Parsed catalog records in renderer order.
+	maxHR: 0,               // Highest HR seen so addStarAtPixel can mint unique HRs in O(1).
 	selectedIndex: -1,      // Currently selected star index, or -1 when nothing is selected.
 	fileHandle: null,       // File System Access handle used for save/save-as when available.
 	fileName: 'catalog.bsc',// Suggested catalog file name when save falls back to download.
@@ -194,12 +196,7 @@ const controller = {
 	},
 
 	setObserverTime(utcMs) {
-		if (skyState.mode === 'local') {
-			const { alt, az } = fwdToAltAz(camera, skyState.observer.zenithWorld);
-			skyState.savedAlt = alt;
-			skyState.savedAz = az;
-			skyState.preserveAltAz = true;
-		}
+		captureAltAzForRestore(skyState, camera);
 		skyState.observer.utcMs = utcMs;
 		skyState.needsAltUpdate = true;
 		requestRender();

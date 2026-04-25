@@ -40,6 +40,9 @@ export function createEditorActions(options)
 		const ui = getUI();
 		const stars = parseCatalog(text);
 		state.stars = stars;
+		let maxHR = 0;
+		for (const star of stars) if (star.HR > maxHR) maxHR = star.HR;
+		state.maxHR = maxHR;
 		state.fileHandle = handle || null;
 		state.fileName = fileName || handle?.name || 'catalog.bsc';
 		state.selectedIndex = -1;
@@ -105,26 +108,34 @@ export function createEditorActions(options)
 	}
 
 
-	function setRADecGridVisibleState(visible)
-	{
-		const ui = getUI();
-		state.showRADecGrid = !!visible;
-		setRADecGridVisible(renderer, state.showRADecGrid);
-		ui.setRADecGridVisible(state.showRADecGrid);
-		requestRender();
-	}
+	const GRID_KINDS = {
+		radec: {
+			stateKey: 'showRADecGrid',
+			rendererSetter: setRADecGridVisible,
+			uiSetter: (ui, value) => ui.setRADecGridVisible(value),
+			refreshObserverOnEnable: false,
+		},
+		altaz: {
+			stateKey: 'showAltAzGrid',
+			rendererSetter: setAltAzGridVisible,
+			uiSetter: (ui, value) => ui.setAltAzGridVisible(value),
+			refreshObserverOnEnable: true,
+		},
+	};
 
 
-	function setAltAzGridVisibleState(visible)
+	function setGridVisibility(kind, visible)
 	{
+		const cfg = GRID_KINDS[kind];
 		const ui = getUI();
-		state.showAltAzGrid = !!visible;
-		setAltAzGridVisible(renderer, state.showAltAzGrid);
-		ui.setAltAzGridVisible(state.showAltAzGrid);
-		if (state.showAltAzGrid)
+		const value = !!visible;
+		state[cfg.stateKey] = value;
+		cfg.rendererSetter(renderer, value);
+		cfg.uiSetter(ui, value);
+		if (value && cfg.refreshObserverOnEnable)
 		{
-			// When live time is enabled, refresh to "now" before the next altitude update so
-			// the newly shown horizon grid does not render against stale observer time.
+			// Live time refresh: pull observer to "now" before the next altitude pass
+			// so the newly shown overlay does not render against stale observer time.
 			if (!skyState.timeLocked)
 			{
 				skyState.observer.utcMs = Date.now();
@@ -164,10 +175,12 @@ export function createEditorActions(options)
 	{
 		const ui = getUI();
 		const { ra, dec } = pixelToRADec(camera, px, py);
-		// New stars get the next available HR so selection and save/load round-trips keep
-		// a stable catalog identifier even for freshly added records.
-		const nextHR = state.stars.reduce((highestHR, star) => Math.max(highestHR, star.HR || 0), 0) + 1;
+		// Drop antipode/edge clicks where unproject can return NaN; otherwise we'd
+		// persist a star with non-finite RA/Dec into the catalog.
+		if (!isFinite(ra) || !isFinite(dec)) return;
+		const nextHR = (state.maxHR || 0) + 1;
 		const star = makeNewStar({ ra, dec, HR: nextHR });
+		state.maxHR = nextHR;
 		state.stars.push(star);
 		appendStar(renderer, star);
 		state.isDirty = true;
@@ -206,8 +219,8 @@ export function createEditorActions(options)
 		setAllowMoving,
 		deleteSelected,
 		setBrightness: setBrightnessMult,
-		setRADecGridVisible: setRADecGridVisibleState,
-		setAltAzGridVisible: setAltAzGridVisibleState,
+		setRADecGridVisible: (visible) => setGridVisibility('radec', visible),
+		setAltAzGridVisible: (visible) => setGridVisibility('altaz', visible),
 		onStarEdited,
 		selectStar,
 		addStarAtPixel,

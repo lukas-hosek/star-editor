@@ -28,7 +28,7 @@ export function pickStar(
 		if (s.flux * brightness <= minScreenBrightness) continue;
 		const v = sphereDir(s.ra, s.dec);
 		const { nx: snx, ny: sny, zc } = project(cam, v);
-		if (zc < -0.5 || !isFinite(snx)) continue;
+		if (zc < -0.5 || !isFinite(snx) || !isFinite(sny)) continue;
 		const dx = (snx - nx) * halfW;
 		const dy = (sny - ny) * halfH;
 		const d2 = dx * dx + dy * dy;
