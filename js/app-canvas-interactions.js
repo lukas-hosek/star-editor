@@ -7,6 +7,7 @@ import {
 	pixelToNDC,
 	unproject,
 	zoomAt,
+	zoomAtConstrained,
 } from './camera.js';
 import { pixelToRADec, pickStar } from './picking.js';
 import { syncOne } from './renderer.js';
@@ -170,7 +171,14 @@ export function createCanvasInteractions(options)
 		const px = e.clientX - rect.left;
 		const py = e.clientY - rect.top;
 		const factor = Math.exp(e.deltaY * 0.0015);
-		zoomAt(camera, px, py, factor);
+		if (skyState.mode === 'local')
+		{
+			zoomAtConstrained(camera, px, py, factor, skyState.observer.zenithWorld);
+		}
+		else
+		{
+			zoomAt(camera, px, py, factor);
+		}
 		requestRender();
 	}, { passive: false });
 

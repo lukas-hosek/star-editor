@@ -264,6 +264,18 @@ export function zoomAt(cam, pixelX, pixelY, factor) {
 }
 
 
+// Zoom with no-roll constraint: same as zoomAt, but re-anchors right/up to the
+// zenith plane afterwards so the camera never rolls. Used in Local mode.
+export function zoomAtConstrained(cam, pixelX, pixelY, factor, zenith) {
+	zoomAt(cam, pixelX, pixelY, factor);
+	const rawRight = cross(zenith, cam.fwd);
+	const rLen = Math.hypot(rawRight[0], rawRight[1], rawRight[2]);
+	if (rLen < 1e-6) return; // looking directly at/away from zenith — skip constraint
+	cam.right = [rawRight[0] / rLen, rawRight[1] / rLen, rawRight[2] / rLen];
+	cam.up = cross(cam.fwd, cam.right);
+}
+
+
 // Pan: drag world direction wFrom to be under pixel (px, py).
 export function panTo(cam, pixelX, pixelY, wFrom) {
 	const [nx, ny] = pixelToNDC(cam, pixelX, pixelY);
