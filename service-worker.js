@@ -1,4 +1,4 @@
-const CACHE_NAME = 'star-editor-v1';
+const CACHE_NAME = 'star-editor-v2';
 const APP_ASSETS = [
 	'./',
 	'./index.html',

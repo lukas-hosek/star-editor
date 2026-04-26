@@ -128,5 +128,6 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 - If code changes are made, prefer the cheapest browser-based validation that exercises the touched path.
 - Use Chromium for browser validation in this repo. Do not spend time probing for other browsers before running a test.
+- The test server runs on port 8080 (`python3 -m http.server 8080`). It is likely already running for the user's manual testing. If not, run it and keep it running after the validations.
 - If no executable validation is available in this environment, inspect the changed files and report the exact manual path to verify.
-- The test server runs on port 8080 (`python3 -m http.server 8080`). `verify.sh` skips starting a new server if port 8080 is already listening.
+

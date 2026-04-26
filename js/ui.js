@@ -178,7 +178,7 @@ export function createUI(controller) {
 		controller.setAltAzGridVisible(!controller.altAzGridVisible);
 	});
 
-	// Brightness slider: log10 gain, -2..+3 → ×0.01..×1000.
+	// Brightness slider: log10 gain, 0..+2 → ×1..×100.
 	el['brightness'].addEventListener('input', () => {
 		const sliderValue = parseFloat(el['brightness'].value);
 		const mult = Math.pow(10, sliderValue);
