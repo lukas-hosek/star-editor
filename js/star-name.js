@@ -1,6 +1,14 @@
 // BSC5 star name decoding for the sidebar title.
 // Exports: formatSidebarTitle(star)
+//
+// BSC5 stores names in a fixed 10-character field using abbreviated forms:
+//   "Alp Lyr"   → α Lyrae   (Bayer designation)
+//   "21Alp Lyr" → α Lyrae   (Flamsteed + Bayer; Flamsteed is dropped in the title)
+//   "34 Cyg"    → 34 Cygni  (Flamsteed-only)
+//   "Kap1Cet"   → κ¹ Ceti   (Bayer with component superscript)
+// Anything that doesn't match these patterns is shown verbatim.
 
+// BSC5 Bayer abbreviations (3-letter, sometimes 2) mapped to Unicode Greek letters.
 const GREEK_LETTER_SYMBOLS = {
 	Alp: 'α',
 	Bet: 'β',
@@ -29,6 +37,8 @@ const GREEK_LETTER_SYMBOLS = {
 };
 
 
+// IAU 3-letter constellation abbreviations mapped to their Latin genitives,
+// used to expand "Lyr" → "Lyrae", "Cet" → "Ceti", etc. in the display title.
 const CONSTELLATION_GENITIVES = {
 	And: 'Andromedae',
 	Ant: 'Antliae',
@@ -120,6 +130,8 @@ const CONSTELLATION_GENITIVES = {
 	Vul: 'Vulpeculae',
 };
 
+// Regex alternation strings built from the map keys, sorted longest-first so
+// that e.g. "Lam" is tried before "La" and "TrA" before "Tr" in the patterns.
 const GREEK_BAYER_TOKENS = Object.keys(GREEK_LETTER_SYMBOLS)
 	.sort((left, right) => right.length - left.length)
 	.join('|');
@@ -128,18 +140,23 @@ const CONSTELLATION_TOKENS = Object.keys(CONSTELLATION_GENITIVES)
 	.sort((left, right) => right.length - left.length)
 	.join('|');
 
+// Matches a plain Bayer name with no component digit: "Alp Lyr", "Bet Cyg".
 const SIMPLE_BAYER_TITLE_NAME_RE = new RegExp(
 	`^(${GREEK_BAYER_TOKENS})\\s+(${CONSTELLATION_TOKENS})$`
 );
 
+// Matches a Bayer name with a component superscript digit: "Kap1Cet", "Pi 2Cyg".
 const COMPONENT_BAYER_TITLE_NAME_RE = new RegExp(
 	`^(${GREEK_BAYER_TOKENS})\\s*(\\d{1,3})\\s*(${CONSTELLATION_TOKENS})$`
 );
 
+// Matches a Flamsteed-only name: "34 Cyg", "61 Cyg".
 const FLAMSTEED_TITLE_NAME_RE = new RegExp(
 	`^(\\d{1,3})\\s+(${CONSTELLATION_TOKENS})$`
 );
 
+// Strips a leading Flamsteed number (and optional whitespace) so the remainder
+// can be matched as a Bayer name — handles combined forms like "21Alp Lyr".
 const LEADING_FLAMSTEED_RE = /^\d{1,3}\s*/;
 
 const SUPERSCRIPT_DIGITS = {
@@ -162,12 +179,17 @@ function superscriptDigits(text)
 }
 
 
+// Attempts to decode a raw BSC5 Name field into a display-friendly string.
+// Returns the trimmed raw value unchanged for names that don't match any
+// known pattern (variable-star IDs, catalogue numbers, etc.).
 function formatSidebarTitleName(name)
 {
 	if (!name) return '';
 
 	const trimmedName = name.trim();
 	const normalizedName = trimmedName.replace(/\s+/g, ' ');
+
+	// Flamsteed-only: "34 Cyg" → "34 Cygni"
 	let match = normalizedName.match(FLAMSTEED_TITLE_NAME_RE);
 	if (match)
 	{
@@ -177,8 +199,12 @@ function formatSidebarTitleName(name)
 		return `${match[1]} ${constellation}`;
 	}
 
+	// Strip any leading Flamsteed number before trying Bayer patterns, so that
+	// combined names like "21Alp Lyr" reduce to "Alp Lyr" for matching.
+	// The Flamsteed number is dropped from the title when a Bayer form is present.
 	const bayerName = normalizedName.replace(LEADING_FLAMSTEED_RE, '');
 
+	// Bayer with component digit: "Kap1Cet" → "κ¹ Ceti", "Pi 2Cyg" → "π² Cygni"
 	match = bayerName.match(COMPONENT_BAYER_TITLE_NAME_RE);
 	if (match)
 	{
@@ -189,6 +215,7 @@ function formatSidebarTitleName(name)
 		return `${greekLetter}${superscriptDigits(match[2])} ${constellation}`;
 	}
 
+	// Simple Bayer: "Alp Lyr" → "α Lyrae"
 	match = bayerName.match(SIMPLE_BAYER_TITLE_NAME_RE);
 	if (!match) return trimmedName;
 
