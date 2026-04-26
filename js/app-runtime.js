@@ -4,10 +4,9 @@ import { lookAtAltAz, setViewport } from './camera.js';
 import { render, resize, setAltitudes, setZenith } from './renderer.js';
 import { captureAltAzForRestore, computeAltitudes, updateObserver } from './sky.js';
 
-// How often the live-time clock advances the observer's UTC. Short enough that
-// the displayed time and horizon math stay within ~10 s of wall clock without
-// repainting at full frame rate.
-const LIVE_TIME_POLL_MS = 10000;
+// How often the live-time clock advances the observer's UTC. 1 s keeps the
+// displayed time readout in sync with wall clock without repainting at full frame rate.
+const LIVE_TIME_POLL_MS = 1000;
 
 let liveTimeIntervalId = null;
 
@@ -67,12 +66,13 @@ export function startAppRuntime(options)
 
 	function advanceLiveObserverTime()
 	{
-		if (!needsObserverState() || skyState.timeLocked) return;
+		if (skyState.timeLocked) return;
 		captureAltAzForRestore(skyState, camera);
 		skyState.observer.utcMs = Date.now();
+		if (ui.syncSkyTime) ui.syncSkyTime();
+		if (!needsObserverState()) return;
 		skyState.needsAltUpdate = true;
 		requestRender();
-		if (ui.syncSkyTime) ui.syncSkyTime();
 	}
 
 

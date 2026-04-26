@@ -105,9 +105,9 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 **Control flow for altitude updates:**
 - `frame()` in `js/app-runtime.js` checks `skyState.needsAltUpdate` before rendering
 - `needsAltUpdate` is set to `true` by: mode change, location change, time change, catalog load
-- A 10-second `setInterval` advances `skyState.observer.utcMs` to `Date.now()` unless `skyState.timeLocked` is set (live checkbox in UI)
+- A 1-second `setInterval` always advances `skyState.observer.utcMs` to `Date.now()` and calls `ui.syncSkyTime()` unless `skyState.timeLocked` is set (live checkbox in UI). The altitude recomputation (`needsAltUpdate = true`) and `requestRender()` are only triggered when `needsObserverState()` is also true, to avoid unnecessary work in allsky mode without the alt/az grid.
 ,**Preserving viewport alt/az across time changes (Local mode):**
-- When time changes (`setObserverTime` or the 10-s interval), the current center alt/az is captured via `fwdToAltAz` (using the old zenith) and stored in `skyState.savedAlt/savedAz`, with `skyState.preserveAltAz = true`.
+- When time changes (`setObserverTime` or the 1-s interval), the current center alt/az is captured via `fwdToAltAz` (using the old zenith) and stored in `skyState.savedAlt/savedAz`, with `skyState.preserveAltAz = true`.
 - In `frame()`, immediately after `updateObserver` delivers the new zenith, if `preserveAltAz` is set the camera is re-oriented to the saved alt/az via `lookAtAltAz`, then the flag is cleared.
 - Location changes and mode switches do NOT set the flag, so those keep their existing `DEFAULT_LOCAL_ALT`/0 reset behaviour.
 
