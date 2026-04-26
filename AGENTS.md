@@ -114,6 +114,15 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
  `appendStar()`, `removeAt()` in `js/renderer.js`
 - Form/model conversion: `createStarFormUI()` in `js/ui-star-form.js`
 
+## Spectral type subtitle
+
+- When a star is selected, a subtitle line appears directly below the sidebar title (`#panel-title`).
+- Left side: decoded luminosity class from `SpType` (e.g., `G2V` → `Class V Main sequence`; `K5III` → `Class III Giant`; `DA2` → `White dwarf`; `sdM2` → `Subdwarf`). Decoded by `decodeSpectralClass()` in `js/ui-star-form.js`.
+- Right side: distance computed from `Parallax` (arcsec) as `1 / Parallax` parsecs. Clicking cycles between pc and ly. Unit state is `distUnit` (local to the `createStarFormUI` closure). Formatted by `formatDistance()` in `js/ui-star-form.js`.
+- The subtitle `<div id="panel-subtitle">` with child spans `#subtitle-class` and `#subtitle-dist` lives in `index.html` immediately after `#panel-title`. It carries `.hidden` by default; `updateSubtitle()` removes it only when at least one of class or distance is non-null.
+- `data-clickable` attribute is set on `#subtitle-dist` only when distance data exists, gating the cursor/underline CSS in `styles.css`.
+- Touched files: `index.html`, `styles.css`, `js/ui.js` (ID registration), `js/ui-star-form.js`.
+
 ## Progressive Web App
 
 - Install assets live at the repo root: `manifest.webmanifest`, `service-worker.js`, and `icons/`.

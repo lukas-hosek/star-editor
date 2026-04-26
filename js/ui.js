@@ -93,7 +93,7 @@ export function createUI(controller) {
 	const ids = [
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
-		'panel-empty', 'panel-form', 'panel-title',
+		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-hr', 'f-name',
 		'f-ra-h', 'f-ra-m', 'f-ra-s',
 		'f-de-sign', 'f-de-d', 'f-de-m', 'f-de-s',

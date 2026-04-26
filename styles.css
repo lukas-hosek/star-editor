@@ -253,6 +253,23 @@ main {
   letter-spacing: normal;
 }
 
+#panel-subtitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10px;
+  color: var(--muted);
+  margin: -8px 0 10px;
+}
+
+#panel-subtitle #subtitle-dist[data-clickable] {
+  cursor: pointer;
+}
+
+#panel-subtitle #subtitle-dist[data-clickable]:hover {
+  color: var(--text);
+}
+
 #panel-form label {
   display: block;
   color: var(--muted);
