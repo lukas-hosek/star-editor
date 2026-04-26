@@ -1,4 +1,4 @@
-const CACHE_NAME = 'star-editor-v2';
+const CACHE_NAME = 'star-editor-v3';
 const APP_ASSETS = [
 	'./',
 	'./index.html',
@@ -25,6 +25,8 @@ const APP_ASSETS = [
 	'./js/renderer-star-buffer.js',
 	'./js/renderer.js',
 	'./js/sky.js',
+	'./js/spectral.js',
+	'./js/star-name.js',
 	'./js/ui-sky-controls.js',
 	'./js/ui-star-form.js',
 	'./js/ui.js',

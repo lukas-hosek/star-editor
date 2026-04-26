@@ -20,6 +20,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
   - canvas mouse/keyboard interactions: `js/app-canvas-interactions.js`
   - top-level UI composition and file I/O: `js/ui.js`
   - star form sync and selection panel state: `js/ui-star-form.js`
+  - spectral type and distance decoding: `js/spectral.js`
+  - star name / Bayer / Flamsteed / constellation decoding: `js/star-name.js`
   - sky mode/location/time controls: `js/ui-sky-controls.js`
 
 ## Control flow
@@ -121,7 +123,7 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - Right side: distance computed from `Parallax` (arcsec) as `1 / Parallax` parsecs. Clicking cycles between pc and ly. Unit state is `distUnit` (local to the `createStarFormUI` closure). Formatted by `formatDistance()` in `js/ui-star-form.js`.
 - The subtitle `<div id="panel-subtitle">` with child spans `#subtitle-class` and `#subtitle-dist` lives in `index.html` immediately after `#panel-title`. It carries `.hidden` by default; `updateSubtitle()` removes it only when at least one of class or distance is non-null.
 - `data-clickable` attribute is set on `#subtitle-dist` only when distance data exists, gating the cursor/underline CSS in `styles.css`.
-- Touched files: `index.html`, `styles.css`, `js/ui.js` (ID registration), `js/ui-star-form.js`.
+- Touched files: `index.html`, `styles.css`, `js/ui.js` (ID registration), `js/ui-star-form.js`, `js/spectral.js`, `js/star-name.js`.
 
 ## Progressive Web App
 
