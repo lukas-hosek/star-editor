@@ -32,8 +32,8 @@ function classifyComponent(s)
 	if (/^W[NCO]/i.test(s)) return { letter: null, name: 'Wolf-Rayet' };
 
 	// Leading letter encodes temperature / colour (O hottest → M coolest, plus
-	// exotic carbon/S-type classes C, S, R).
-	const letterMatch = s.match(/^([OBAFGKMCSR])/);
+	// exotic carbon/S-type classes C, S, R, and old red-carbon class N).
+	const letterMatch = s.match(/^([OBAFGKMCSRN])/);
 	const letter = letterMatch ? letterMatch[1] : null;
 
 	// Luminosity class Roman numeral appears after the subclass digit(s) and any
