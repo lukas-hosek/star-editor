@@ -6,7 +6,8 @@ import { drawGridOverlay } from './renderer-overlay.js';
 import { createRendererPipeline, drawRenderPipeline } from './renderer-pipeline.js';
 import { createStarBuffers } from './renderer-star-buffer.js';
 
-const STAR_POINT_SIZE = 2.0;
+const STAR_POINT_SIZE = 4.0;
+const STAR_KERNEL = 'rcos';
 
 
 export {
@@ -41,6 +42,7 @@ export function createRenderer(canvas, overlayCanvas)
 
 		brightness: 1.0,
 		pointSize: STAR_POINT_SIZE,
+		starKernel: STAR_KERNEL,
 		raDecGridVisible: false,
 		altAzGridVisible: false,
 		overlayScale: 1,
@@ -67,6 +69,12 @@ export function setBrightness(renderer, brightness)
 export function setPointSize(renderer, pointSize)
 {
 	renderer.pointSize = pointSize;
+}
+
+
+export function setStarKernel(renderer, kernel)
+{
+	renderer.starKernel = kernel === 'tent' ? 'tent' : 'rcos';
 }
 
 

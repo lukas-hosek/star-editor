@@ -41,24 +41,52 @@ void main() {
                      0.0, 1.0);
   float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
   float intensity = aFlux * uBrightness * dimMult;
-  vColor = aColor * intensity;
-  gl_PointSize = uPointSize;
+	vec3 rawColor = aColor * intensity;
+	float peak = max(rawColor.r, max(rawColor.g, rawColor.b));
+	if (peak > 1.0) {
+		vColor = rawColor / peak;
+		gl_PointSize = uPointSize * sqrt(sqrt(peak));
+	}
+	else {
+		vColor = rawColor;
+		gl_PointSize = uPointSize;
+	}
 }
 `;
 
-const STAR_FS = `#version 300 es
+const STAR_FS_TENT = `#version 300 es
 precision highp float;
 in vec3 vColor;
-uniform float uPointSize;
 out vec4 fragColor;
 void main() {
-  vec2 pixelDelta = abs(gl_PointCoord - vec2(0.5)) * uPointSize;
-  vec2 tent = max(vec2(0.0), vec2(1.0) - pixelDelta);
-  float weight = tent.x * tent.y;
-  if (weight <= 0.0) discard;
+	vec2 delta = abs(gl_PointCoord - vec2(0.5)) * 2.0;
+	vec2 tent = max(vec2(0.0), vec2(1.0) - delta);
+	float weight = tent.x * tent.y;
+	if (weight <= 0.0) discard;
+	fragColor = vec4(vColor * weight, weight);
+}
+`;
+
+const STAR_FS_RCOS = `#version 300 es
+precision highp float;
+in vec3 vColor;
+out vec4 fragColor;
+void main() {
+	vec2 delta = gl_PointCoord - vec2(0.5);
+	float radius = length(delta) * 2.0;
+	if (radius >= 1.0) discard;
+	float weight = cos(1.57079632679 * radius);
+	weight *= weight;
   fragColor = vec4(vColor * weight, weight);
 }
 `;
+
+const STAR_ATTRIB_BINDINGS = [
+	[0, 'aPos'],
+	[1, 'aColor'],
+	[2, 'aFlux'],
+	[3, 'aAlt'],
+];
 
 const RING_VS = `#version 300 es
 uniform vec3 uPos;
@@ -149,13 +177,17 @@ function compile(gl, type, src)
 }
 
 
-function link(gl, vsSrc, fsSrc)
+function link(gl, vsSrc, fsSrc, attribBindings = [])
 {
 	const vertexShader = compile(gl, gl.VERTEX_SHADER, vsSrc);
 	const fragmentShader = compile(gl, gl.FRAGMENT_SHADER, fsSrc);
 	const program = gl.createProgram();
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
+	for (const [index, name] of attribBindings)
+	{
+		gl.bindAttribLocation(program, index, name);
+	}
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS))
 	{
@@ -190,14 +222,27 @@ function aspectScales(width, height)
 
 export function createRendererPipeline(gl)
 {
-	const starProg = link(gl, STAR_VS, STAR_FS);
+	const starProgTent = link(gl, STAR_VS, STAR_FS_TENT, STAR_ATTRIB_BINDINGS);
+	const starProgRcos = link(gl, STAR_VS, STAR_FS_RCOS, STAR_ATTRIB_BINDINGS);
 	const ringProg = link(gl, RING_VS, RING_FS);
 	const groundProg = link(gl, GROUND_VS, GROUND_FS);
 
-	const starU = uniforms(gl, starProg, [
-		'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
-		'uHorizonMode', 'uDimFactor',
-	]);
+	const starPrograms = {
+		tent: {
+			program: starProgTent,
+			uniforms: uniforms(gl, starProgTent, [
+				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
+				'uHorizonMode', 'uDimFactor',
+			]),
+		},
+		rcos: {
+			program: starProgRcos,
+			uniforms: uniforms(gl, starProgRcos, [
+				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
+				'uHorizonMode', 'uDimFactor',
+			]),
+		},
+	};
 	const ringU = uniforms(gl, ringProg, [
 		'uPos', 'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uPointSize',
 	]);
@@ -218,8 +263,8 @@ export function createRendererPipeline(gl)
 	gl.bindVertexArray(null);
 
 	return {
-		starProg,
-		starU,
+		starProg: starProgRcos,
+		starPrograms,
 		ringProg,
 		ringU,
 		groundProg,
@@ -256,18 +301,20 @@ export function drawRenderPipeline(renderer, camera, selectedStar)
 		gl.bindVertexArray(null);
 	}
 
-	gl.useProgram(renderer.starProg);
+	const starProgram = renderer.starPrograms[renderer.starKernel] || renderer.starPrograms.rcos;
+	const starU = starProgram.uniforms;
+	gl.useProgram(starProgram.program);
 	gl.bindVertexArray(renderer.vao);
-	gl.uniform3f(renderer.starU.uRight, camera.right[0], camera.right[1], camera.right[2]);
-	gl.uniform3f(renderer.starU.uUp, camera.up[0], camera.up[1], camera.up[2]);
-	gl.uniform3f(renderer.starU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
-	gl.uniform1f(renderer.starU.uTanHalfFov, tanHalfFov);
-	gl.uniform1f(renderer.starU.uAspectX, aspectX);
-	gl.uniform1f(renderer.starU.uAspectY, aspectY);
-	gl.uniform1f(renderer.starU.uBrightness, renderer.brightness);
-	gl.uniform1f(renderer.starU.uPointSize, renderer.pointSize);
-	gl.uniform1i(renderer.starU.uHorizonMode, renderer.horizonMode);
-	gl.uniform1f(renderer.starU.uDimFactor, renderer.dimFactor);
+	gl.uniform3f(starU.uRight, camera.right[0], camera.right[1], camera.right[2]);
+	gl.uniform3f(starU.uUp, camera.up[0], camera.up[1], camera.up[2]);
+	gl.uniform3f(starU.uFwd, camera.fwd[0], camera.fwd[1], camera.fwd[2]);
+	gl.uniform1f(starU.uTanHalfFov, tanHalfFov);
+	gl.uniform1f(starU.uAspectX, aspectX);
+	gl.uniform1f(starU.uAspectY, aspectY);
+	gl.uniform1f(starU.uBrightness, renderer.brightness);
+	gl.uniform1f(starU.uPointSize, renderer.pointSize);
+	gl.uniform1i(starU.uHorizonMode, renderer.horizonMode);
+	gl.uniform1f(starU.uDimFactor, renderer.dimFactor);
 	gl.drawArrays(gl.POINTS, 0, renderer.count);
 	gl.bindVertexArray(null);
 

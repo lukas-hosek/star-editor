@@ -30,6 +30,7 @@ const state = {
 	fileName: 'catalog.bsc',// Suggested catalog file name when save falls back to download.
 	addMode: false,         // When true, the next left click adds a new star instead of selecting.
 	allowMoving: false,     // When true, dragging the selected star updates its RA/Dec.
+	starSize: 'medium',     // Active star size preset: 'small' | 'medium' | 'large'.
 	showRADecGrid: true,    // Whether the RA/Dec grid overlay is visible.
 	showAltAzGrid: false,   // Whether the Alt/Az grid overlay is visible.
 	isDirty: false,         // Tracks unsaved catalog edits for status text and unload warnings.
@@ -98,6 +99,7 @@ const {
 	setAllowMoving,
 	deleteSelected,
 	setBrightness,
+	setStarSize,
 	setRADecGridVisible,
 	setAltAzGridVisible,
 	onStarEdited,
@@ -115,6 +117,10 @@ const controller = {
 
 	get allowMoving() {
 		return state.allowMoving;
+	},
+
+	get starSize() {
+		return state.starSize;
 	},
 
 	get raDecGridVisible() {
@@ -168,6 +174,7 @@ const controller = {
 	setAllowMoving,
 	deleteSelected,
 	setBrightness,
+	setStarSize,
 	setRADecGridVisible,
 	setAltAzGridVisible,
 	onStarEdited,
@@ -211,6 +218,7 @@ const controller = {
 ui = createUI(controller);
 ui.setCatalogLoaded(false);
 ui.setAllowMoving(state.allowMoving);
+controller.setStarSize(state.starSize);
 controller.setRADecGridVisible(state.showRADecGrid);
 controller.setAltAzGridVisible(state.showAltAzGrid);
 ui.showNoSelection();

@@ -7,10 +7,19 @@ import {
 	removeAt,
 	setAltAzGridVisible,
 	setBrightness,
+	setPointSize,
 	setRADecGridVisible,
+	setStarKernel,
 	syncAll,
 	syncOne,
 } from './renderer.js';
+
+
+const STAR_SIZE_PRESETS = {
+	small: { pointSize: 2, kernel: 'tent' },
+	medium: { pointSize: 4, kernel: 'rcos' },
+	large: { pointSize: 6, kernel: 'rcos' },
+};
 
 
 export function createEditorActions(options)
@@ -104,6 +113,19 @@ export function createEditorActions(options)
 	function setBrightnessMult(mult)
 	{
 		setBrightness(renderer, mult);
+		requestRender();
+	}
+
+
+	function setStarSizePreset(size)
+	{
+		const preset = STAR_SIZE_PRESETS[size] || STAR_SIZE_PRESETS.medium;
+		const nextSize = STAR_SIZE_PRESETS[size] ? size : 'medium';
+		const ui = getUI();
+		state.starSize = nextSize;
+		setPointSize(renderer, preset.pointSize);
+		setStarKernel(renderer, preset.kernel);
+		if (ui.setStarSize) ui.setStarSize(nextSize);
 		requestRender();
 	}
 
@@ -219,6 +241,7 @@ export function createEditorActions(options)
 		setAllowMoving,
 		deleteSelected,
 		setBrightness: setBrightnessMult,
+		setStarSize: setStarSizePreset,
 		setRADecGridVisible: (visible) => setGridVisibility('radec', visible),
 		setAltAzGridVisible: (visible) => setGridVisibility('altaz', visible),
 		onStarEdited,

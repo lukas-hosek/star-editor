@@ -91,7 +91,7 @@ export function createUI(controller) {
 	const el = {};
 	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
-		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'btn-grid', 'btn-altaz-grid',
+		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-hr', 'f-name',
@@ -170,6 +170,12 @@ export function createUI(controller) {
 		controller.setAllowMoving(!controller.allowMoving);
 	});
 
+	for (const button of el['star-size-toggle'].querySelectorAll('.star-size-btn')) {
+		button.addEventListener('click', () => {
+			controller.setStarSize(button.dataset.size);
+		});
+	}
+
 	el['btn-grid'].addEventListener('click', () => {
 		controller.setRADecGridVisible(!controller.raDecGridVisible);
 	});
@@ -219,6 +225,13 @@ export function createUI(controller) {
 	}
 
 
+	function setStarSize(size) {
+		for (const button of el['star-size-toggle'].querySelectorAll('.star-size-btn')) {
+			button.classList.toggle('active', button.dataset.size === size);
+		}
+	}
+
+
 	function setCatalogLoaded(loaded) {
 		el['btn-save'].disabled = !loaded;
 		el['btn-save-as'].disabled = !loaded;
@@ -235,6 +248,7 @@ export function createUI(controller) {
 		setStatus,
 		setAddMode,
 		setAllowMoving,
+		setStarSize,
 		setRADecGridVisible,
 		setAltAzGridVisible,
 		setCatalogLoaded,

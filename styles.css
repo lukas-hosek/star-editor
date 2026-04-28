@@ -56,6 +56,10 @@ body {
 
 #toolbar .group.grow { flex: 1 1 auto; justify-content: center; }
 
+#toolbar .toolbar-label {
+  color: var(--muted);
+}
+
 #toolbar button {
   background: var(--panel-bg2);
   color: var(--text);
@@ -82,7 +86,7 @@ body {
   border-color: var(--accent);
 }
 
-#toolbar #sky-mode-toggle .sky-mode-btn {
+#toolbar .toolbar-toggle button {
   border-radius: 0;
   border-top: none;
   border-bottom: none;
@@ -91,9 +95,9 @@ body {
   padding: 5px 10px;
 }
 
-#toolbar #sky-mode-toggle .sky-mode-btn:last-child { border-right: none; }
+#toolbar .toolbar-toggle button:last-child { border-right: none; }
 
-#toolbar #sky-mode-toggle .sky-mode-btn:hover:not(:disabled) {
+#toolbar .toolbar-toggle button:hover:not(:disabled) {
   color: var(--text);
   border-color: var(--border);
 }
@@ -102,6 +106,12 @@ body {
   background: var(--accent-2);
   color: #000;
   border-color: var(--accent-2);
+}
+
+#toolbar #star-size-toggle .star-size-btn.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
 }
 
 #toolbar .slider {
@@ -334,7 +344,8 @@ main {
   padding: 12px 16px 16px;
 }
 
-#sky-mode-toggle {
+#sky-mode-toggle,
+#star-size-toggle {
   display: flex;
   border: 1px solid var(--border);
   border-radius: 4px;

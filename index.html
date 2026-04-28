@@ -24,13 +24,19 @@
       <button id="btn-add" disabled>Add Star</button>
       <button id="btn-delete" disabled>Delete</button>
       <button id="btn-move" type="button" disabled aria-label="Enable moving" title="Enable moving">🔒</button>
+      <span class="toolbar-label">Star Size</span>
+      <div id="star-size-toggle" class="toolbar-toggle" role="group" aria-label="Star size">
+        <button class="star-size-btn" type="button" data-size="small">Small</button>
+        <button class="star-size-btn" type="button" data-size="medium">Medium</button>
+        <button class="star-size-btn" type="button" data-size="large">Large</button>
+      </div>
       <button id="btn-grid" type="button">RA/Dec Grid</button>
       <button id="btn-altaz-grid" type="button">Alt/Az Grid</button>
     </div>
     <div class="group grow">
       <label class="slider">
         Brightness
-        <input id="brightness" type="range" min="0" max="2" step="0.01" value="1.301">
+        <input id="brightness" type="range" min="0" max="3" step="0.01" value="1.301">
         <span id="brightness-readout">×1.00</span>
       </label>
     </div>
