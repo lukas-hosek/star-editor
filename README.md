@@ -23,7 +23,7 @@ python3 -m http.server 8080
 
 Then open `http://localhost:8080` in your browser.
 
-Browser support
+## Browser support
 
 - Chromium: installable PWA, offline app shell plus bundled `catalog.bsc`, and direct `Save` / `Save As` through the File System Access API.
 - Firefox: offline shell after the first online visit, local file open through the fallback picker, and download-based export for `Save` / `Save As`.
