@@ -82,19 +82,20 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Brightness soft saturation
 
-- Bright-star anti-clipping now lives entirely in `STAR_VS` / `STAR_FS` in `js/renderer-pipeline.js`.
+- Bright-star anti-clipping now lives only in the raised-cosine star shader pair `STAR_VS_RCOS` / `STAR_FS_RCOS` in `js/renderer-pipeline.js`.
 - The raw rendered star color is still computed the old way: catalog RGB × `aFlux` × `uBrightness` × optional horizon dimming.
-- If every channel stays `<= 1.0`, the shader renders the star exactly as before.
-- If any channel exceeds `1.0`, the shader divides the color by that peak channel and scales `gl_PointSize` by `sqrt(peak)`, so hue is preserved and the integrated sprite energy grows through area instead of channel clipping.
-- Non-obvious shader detail: the fragment kernel is a size-agnostic radial raised-cosine in normalized `gl_PointCoord` space, so visible star size is controlled entirely by `gl_PointSize` from `STAR_VS`.
+- If every channel stays below the active RCOS threshold, the shader renders the star exactly as before.
+- If any channel exceeds that threshold, the shader divides the color by that peak channel and scales `gl_PointSize`, so hue is preserved and the integrated sprite energy grows through area instead of channel clipping.
+- The small tent preset does not apply this clipping/normalization path; `STAR_VS_TENT` renders catalog RGB × `aFlux` × `uBrightness` × horizon dimming directly.
+- Non-obvious shader detail: both star fragment kernels are size-agnostic in normalized `gl_PointCoord` space, so visible star size is controlled entirely by `gl_PointSize` from their matching vertex shaders.
 - Touched files: `js/renderer-pipeline.js`, `AGENTS.md`.
 
 ## Star size presets
 
 - The toolbar now includes a `Star Size` segmented control before `RA/Dec Grid`, with presets `Small`, `Medium`, and `Large`.
 - Preset ownership is split across UI and renderer state: `state.starSize` in `js/app.js` stores the active preset name, `setStarSizePreset()` in `js/app-editor-actions.js` maps preset names to renderer settings, and `createUI()` in `js/ui.js` mirrors the active button state.
-- Preset mapping: `Small` uses `pointSize = 2` with the separable tent fragment shader `STAR_FS_TENT`; `Medium` uses `pointSize = 4` with the raised-cosine fragment shader `STAR_FS_RCOS`; `Large` uses `pointSize = 6` with the same raised-cosine shader.
-- `createRendererPipeline()` in `js/renderer-pipeline.js` now compiles both star fragment programs up front. Non-obvious renderer detail: both star programs bind the same attribute locations before link, so the existing single star VAO from `js/renderer-star-buffer.js` can be reused while `drawRenderPipeline()` switches between programs via `renderer.starKernel`.
+- Preset mapping: `Small` uses `pointSize = 2` with the tent shader pair `STAR_VS_TENT` / `STAR_FS_TENT`; `Medium` uses `pointSize = 4` with the raised-cosine pair `STAR_VS_RCOS` / `STAR_FS_RCOS`; `Large` uses `pointSize = 6` with the same raised-cosine pair.
+- `createRendererPipeline()` in `js/renderer-pipeline.js` now compiles both star shader pairs up front. Non-obvious renderer detail: both star programs bind the same attribute locations before link, so the existing single star VAO from `js/renderer-star-buffer.js` can be reused while `drawRenderPipeline()` switches between programs via `renderer.starKernel`.
 - Default startup preset is `Medium`, which initializes renderer state to `pointSize = 4` and kernel `rcos` in `js/renderer.js` / `js/app.js`.
 - Touched files: `index.html`, `styles.css`, `js/ui.js`, `js/app.js`, `js/app-editor-actions.js`, `js/renderer.js`, `js/renderer-pipeline.js`, `AGENTS.md`.
 

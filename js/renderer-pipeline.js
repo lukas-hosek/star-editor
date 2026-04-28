@@ -1,7 +1,7 @@
 import { sphereDir } from './camera.js';
 
 
-const STAR_VS = `#version 300 es
+const STAR_VS_TENT = `#version 300 es
 in vec3 aPos;
 in vec3 aColor;
 in float aFlux;
@@ -41,6 +41,51 @@ void main() {
                      0.0, 1.0);
   float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
   float intensity = aFlux * uBrightness * dimMult;
+	vColor = aColor * intensity;
+	gl_PointSize = uPointSize;
+}
+`;
+
+const STAR_VS_RCOS = `#version 300 es
+in vec3 aPos;
+in vec3 aColor;
+in float aFlux;
+in float aAlt;
+uniform vec3 uRight;
+uniform vec3 uUp;
+uniform vec3 uFwd;
+uniform float uTanHalfFov;
+uniform float uAspectX;
+uniform float uAspectY;
+uniform float uBrightness;
+uniform float uPointSize;
+uniform int uHorizonMode;
+uniform float uDimFactor;
+out vec3 vColor;
+void main() {
+	float xc = dot(aPos, uRight);
+	float yc = dot(aPos, uUp);
+	float zc = dot(aPos, uFwd);
+	if (zc < -0.5) {
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		gl_PointSize = 0.0;
+		vColor = vec3(0.0);
+		return;
+	}
+	if (uHorizonMode == 2 && aAlt < 0.0) {
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		gl_PointSize = 0.0;
+		vColor = vec3(0.0);
+		return;
+	}
+	float k = 1.0 / (1.0 + zc);
+	float sx = xc * k;
+	float sy = yc * k;
+	gl_Position = vec4(sx / (uTanHalfFov * uAspectX),
+										 sy / (uTanHalfFov * uAspectY),
+										 0.0, 1.0);
+	float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
+	float intensity = aFlux * uBrightness * dimMult;
 	vec3 rawColor = aColor * intensity;
 	float peak = max(rawColor.r, max(rawColor.g, rawColor.b));
 	if (peak > 1.0) {
@@ -222,8 +267,8 @@ function aspectScales(width, height)
 
 export function createRendererPipeline(gl)
 {
-	const starProgTent = link(gl, STAR_VS, STAR_FS_TENT, STAR_ATTRIB_BINDINGS);
-	const starProgRcos = link(gl, STAR_VS, STAR_FS_RCOS, STAR_ATTRIB_BINDINGS);
+	const starProgTent = link(gl, STAR_VS_TENT, STAR_FS_TENT, STAR_ATTRIB_BINDINGS);
+	const starProgRcos = link(gl, STAR_VS_RCOS, STAR_FS_RCOS, STAR_ATTRIB_BINDINGS);
 	const ringProg = link(gl, RING_VS, RING_FS);
 	const groundProg = link(gl, GROUND_VS, GROUND_FS);
 
