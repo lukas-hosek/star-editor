@@ -40,7 +40,7 @@ body {
 #toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   padding: 8px 12px;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--border);
@@ -52,6 +52,21 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+#toolbar .group.separated {
+  position: relative;
+  padding-left: 22px;
+}
+
+#toolbar .group.separated::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
 }
 
 #toolbar .group.grow { flex: 1 1 auto; justify-content: center; }
@@ -112,6 +127,23 @@ body {
   background: var(--accent);
   color: #000;
   border-color: var(--accent);
+}
+
+#toolbar #star-size-toggle .star-size-btn {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+#toolbar #star-size-toggle .star-size-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  pointer-events: none;
 }
 
 #toolbar .slider {

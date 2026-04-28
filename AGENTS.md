@@ -93,6 +93,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 ## Star size presets
 
 - The toolbar now includes a `Star Size` segmented control before `RA/Dec Grid`, with presets `Small`, `Medium`, and `Large`.
+- The toolbar variant is icon-only: three inline SVG star glyphs at increasing apparent sizes. Each glyph uses `currentColor`, so the existing button `color` switch handles contrast automatically for inactive, hover, and active states.
 - Preset ownership is split across UI and renderer state: `state.starSize` in `js/app.js` stores the active preset name, `setStarSizePreset()` in `js/app-editor-actions.js` maps preset names to renderer settings, and `createUI()` in `js/ui.js` mirrors the active button state.
 - Preset mapping: `Small` uses `pointSize = 2` with the tent shader pair `STAR_VS_TENT` / `STAR_FS_TENT`; `Medium` uses `pointSize = 4` with the raised-cosine pair `STAR_VS_RCOS` / `STAR_FS_RCOS`; `Large` uses `pointSize = 6` with the same raised-cosine pair.
 - `createRendererPipeline()` in `js/renderer-pipeline.js` now compiles both star shader pairs up front. Non-obvious renderer detail: both star programs bind the same attribute locations before link, so the existing single star VAO from `js/renderer-star-buffer.js` can be reused while `drawRenderPipeline()` switches between programs via `renderer.starKernel`.

@@ -227,7 +227,9 @@ export function createUI(controller) {
 
 	function setStarSize(size) {
 		for (const button of el['star-size-toggle'].querySelectorAll('.star-size-btn')) {
-			button.classList.toggle('active', button.dataset.size === size);
+			const isActive = button.dataset.size === size;
+			button.classList.toggle('active', isActive);
+			button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
 		}
 	}
 
