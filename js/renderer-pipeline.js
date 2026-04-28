@@ -90,7 +90,7 @@ void main() {
 	float peak = max(rawColor.r, max(rawColor.g, rawColor.b));
 	if (peak > 1.0) {
 		vColor = rawColor / peak;
-		gl_PointSize = uPointSize * sqrt(sqrt(peak));
+		gl_PointSize = uPointSize * pow(peak, 0.33);
 	}
 	else {
 		vColor = rawColor;
