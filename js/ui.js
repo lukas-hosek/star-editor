@@ -7,10 +7,16 @@ import { createStarFormUI } from './ui-star-form.js';
 
 
 // ---------- File pickers ----------
-const FILE_TYPES = [{
-	description: 'Bright Star Catalogue',
-	accept: { 'text/plain': ['.txt', '.dat', '.bsc'] },
-}];
+const FILE_TYPES = [
+	{
+		description: 'Bright Star Catalogue',
+		accept: { 'text/plain': ['.txt', '.dat', '.bsc'] },
+	},
+	{
+		description: 'HYG Star Catalog',
+		accept: { 'text/csv': ['.csv'] },
+	},
+];
 
 function canUseFileSystemAccess() {
 	return window.isSecureContext && 'showOpenFilePicker' in window;
@@ -65,7 +71,7 @@ function downloadCatalog(text, fileName) {
 function createOpenFallbackInput() {
 	const input = document.createElement('input');
 	input.type = 'file';
-	input.accept = '.txt,.dat,text/plain';
+	input.accept = '.txt,.dat,.bsc,.csv,text/plain,text/csv';
 	input.hidden = true;
 	document.body.appendChild(input);
 	return input;

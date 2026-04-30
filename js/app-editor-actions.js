@@ -1,6 +1,7 @@
 // Catalog/editor actions: catalog load/save, selection, and star mutations.
 
-import { makeNewStar, parseCatalog, refreshStarPhotometry, serializeCatalog } from './catalog.js';
+import { makeNewStar, parseBscCatalog, refreshStarPhotometry, serializeBscCatalog } from './catalog-bsc.js';
+import { parseHygCatalog, serializeHygCatalog } from './catalog-hyg.js';
 import { pixelToRADec } from './picking.js';
 import {
 	appendStar,
@@ -47,13 +48,15 @@ export function createEditorActions(options)
 	function loadCatalog(text, handle, fileName)
 	{
 		const ui = getUI();
-		const stars = parseCatalog(text);
+		const isHyg = (fileName || '').toLowerCase().endsWith('.csv');
+		const stars = isHyg ? parseHygCatalog(text) : parseBscCatalog(text);
 		state.stars = stars;
+		state.catalogFormat = isHyg ? 'hyg' : 'bsc';
 		let maxHR = 0;
 		for (const star of stars) if (star.HR > maxHR) maxHR = star.HR;
 		state.maxHR = maxHR;
 		state.fileHandle = handle || null;
-		state.fileName = fileName || handle?.name || 'catalog.bsc';
+		state.fileName = fileName || handle?.name || (isHyg ? 'catalog.csv' : 'catalog.bsc');
 		state.selectedIndex = -1;
 		state.allowMoving = false;
 		state.isDirty = false;
@@ -69,7 +72,9 @@ export function createEditorActions(options)
 
 	function serialize()
 	{
-		return serializeCatalog(state.stars);
+		return state.catalogFormat === 'hyg'
+			? serializeHygCatalog(state.stars)
+			: serializeBscCatalog(state.stars);
 	}
 
 

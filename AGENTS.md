@@ -8,7 +8,8 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 - Start with `js/app.js`. It owns application state and wires every other module together.
 - Only branch outward after identifying which slice is responsible:
-  - parsing and serialization: `js/catalog.js`
+  - BSC5 parsing and serialization: `js/catalog-bsc.js`
+  - HYG parsing and serialization: `js/catalog-hyg.js`
   - camera math and sky projection: `js/camera.js`
   - renderer composition and exported API: `js/renderer.js`
   - renderer draw passes and shader setup: `js/renderer-pipeline.js`
@@ -27,7 +28,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 ## Control flow
 
 - App boot: `index.html` -> manifest/icon links + service-worker registration (when supported) -> `js/app.js` -> `createEditorActions()` / `createCanvasInteractions()` / `startAppRuntime()`
-- File open: `js/ui.js` -> `controller.loadCatalog()` -> `parseCatalog()` -> `syncAll()`
+- File open: `js/ui.js` -> `controller.loadCatalog()` -> format detected from file extension (`.csv` → HYG, else BSC) -> `parseBscCatalog()` or `parseHygCatalog()` -> `syncAll()`
 - Side-panel edit: `js/ui-star-form.js` -> mutate selected star -> `controller.onStarEdited()` -> `refreshStarPhotometry()` -> `syncOne()`
 - Side-panel title display: `js/ui-star-form.js:refreshSelection()` -> `formatSidebarTitle()` -> optional Bayer-style decode for the panel title only
 - Canvas input: `js/app.js` -> `createCanvasInteractions()` in `js/app-canvas-interactions.js` -> selection / add / drag / pan / zoom handlers
@@ -44,7 +45,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Project-specific rules
 
-- Preserve byte-level round-tripping where possible. `js/catalog.js` intentionally keeps `_raw` for untouched records.
+- Preserve byte-level round-tripping where possible. Both `js/catalog-bsc.js` and `js/catalog-hyg.js` keep `_raw` for untouched records; only `_edited` stars are reconstructed on save.
 - Treat `ybsc5.readme` as the authoritative field-layout reference before changing parse/serialize offsets.
 - Do not introduce a Node.js-based verification path. The user does not have Node installed and does not intend to install it.
 - When adding any new feature, update this file. Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
@@ -157,7 +158,17 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 
 ## Validation
 
-- If code changes are made, prefer the cheapest browser-based validation that exercises the touched path.
+## HYG catalog support
+
+- The app now accepts both BSC5 fixed-width (`.bsc`, `.dat`, `.txt`) and HYG CSV v4.2 (`.csv`) files.
+- Format is detected by file extension in `loadCatalog()` (`js/app-editor-actions.js`): `.csv` → HYG, anything else → BSC.
+- `state.catalogFormat` (`'bsc'` | `'hyg'`) tracks the loaded format so `serialize()` dispatches to the correct writer.
+- HYG stars share the same internal shape as BSC stars, with six additional fields: `x`, `y`, `z` (parsecs) and `vx`, `vy`, `vz` (km/s). BSC stars and newly added stars have these set to `null`.
+- Unit conversion on HYG load: `pmra`/`pmdec` (mas/yr) → `pmRA`/`pmDE` (arcsec/yr) divided by 1000; `dist` (pc) → `Parallax` (arcsec) as `1/dist`. On save the reverse conversion is applied for `_edited` rows.
+- `_raw` round-trip: unedited HYG rows emit their original CSV line verbatim. Edited rows are reconstructed from the mapped fields; unmapped HYG columns (`hip`, `proper`, `bayer`, `flam`, `con`, `comp`, `lum`, `var`, etc.) are written as blank.
+- Touched files: `js/catalog-bsc.js` (renamed from `catalog.js`, exports renamed to `parseBscCatalog`/`serializeBscCatalog`), `js/catalog-hyg.js` (new), `js/app-editor-actions.js`, `js/app.js`, `js/ui.js`, `service-worker.js`, `AGENTS.md`.
+
+## Validation
 - Use Chromium for browser validation in this repo. Do not spend time probing for other browsers before running a test.
 - The test server runs on port 8080 (`python3 -m http.server 8080`). It is likely already running for the user's manual testing. If not, run it and keep it running after the validations.
 - If no executable validation is available in this environment, inspect the changed files and report the exact manual path to verify.

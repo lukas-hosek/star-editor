@@ -1,4 +1,4 @@
-const CACHE_NAME = 'star-editor-v3';
+const CACHE_NAME = 'star-editor-v4';
 const APP_ASSETS = [
 	'./',
 	'./index.html',
@@ -17,7 +17,8 @@ const APP_ASSETS = [
 	'./js/app-runtime.js',
 	'./js/app.js',
 	'./js/camera.js',
-	'./js/catalog.js',
+	'./js/catalog-bsc.js',
+	'./js/catalog-hyg.js',
 	'./js/coords.js',
 	'./js/picking.js',
 	'./js/renderer-overlay.js',

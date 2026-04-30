@@ -34,6 +34,7 @@ const state = {
 	showRADecGrid: true,    // Whether the RA/Dec grid overlay is visible.
 	showAltAzGrid: false,   // Whether the Alt/Az grid overlay is visible.
 	isDirty: false,         // Tracks unsaved catalog edits for status text and unload warnings.
+	catalogFormat: 'bsc',  // Format of the loaded catalog: 'bsc' | 'hyg'. Controls serialization.
 };
 
 const skyState = {
