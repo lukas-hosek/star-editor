@@ -137,6 +137,11 @@ export function parseBscCatalog(text) {
 			Parallax: parseFloatBlank(slice(line, 162, 166)),
 			RadVel: parseIntBlank(slice(line, 167, 170)),
 
+			hygId:        null,
+			glieseId:     null,
+			properName:   null,
+			primaryHygId: null,
+
 			_raw: rawLine,      // original, so unedited fields round-trip byte-exact
 			_edited: false,
 		};
@@ -303,6 +308,10 @@ export function makeNewStar({ ra, dec, HR }) {
 		vx: null,
 		vy: null,
 		vz: null,
+		hygId:        null,
+		glieseId:     null,
+		properName:   null,
+		primaryHygId: null,
 		_raw: '',
 		_edited: true,
 	};

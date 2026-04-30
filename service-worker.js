@@ -4,7 +4,7 @@ const APP_ASSETS = [
 	'./index.html',
 	'./styles.css',
 	'./manifest.webmanifest',
-	'./catalog.bsc',
+	'./hyg/hyg_v42.csv',
 	'./icons/star-editor.svg',
 	'./icons/star-editor-maskable.svg',
 	'./icons/star-editor-192.png',

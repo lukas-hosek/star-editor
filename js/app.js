@@ -27,7 +27,7 @@ const state = {
 	maxHR: 0,               // Highest HR seen so addStarAtPixel can mint unique HRs in O(1).
 	selectedIndex: -1,      // Currently selected star index, or -1 when nothing is selected.
 	fileHandle: null,       // File System Access handle used for save/save-as when available.
-	fileName: 'catalog.bsc',// Suggested catalog file name when save falls back to download.
+	fileName: 'hyg_v42.csv', // Suggested catalog file name when save falls back to download.
 	addMode: false,         // When true, the next left click adds a new star instead of selecting.
 	allowMoving: false,     // When true, dragging the selected star updates its RA/Dec.
 	starSize: 'medium',     // Active star size preset: 'small' | 'medium' | 'large'.
@@ -227,20 +227,20 @@ editorActions.updateStatus();
 
 async function loadDefaultCatalog() {
 	try {
-		const response = await fetch('./catalog.bsc');
+		const response = await fetch('./hyg/hyg_v42.csv');
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
 		}
 		const text = await response.text();
-		controller.loadCatalog(text, null, 'catalog.bsc');
+		controller.loadCatalog(text, null, 'hyg_v42.csv');
 	}
 	catch (err) {
 		const banner = document.getElementById('banner');
 		if (banner) {
-			banner.textContent = 'Unable to load default catalog.bsc automatically. Use Open to choose a catalog file.';
+			banner.textContent = 'Unable to load default catalog automatically. Use Open to choose a catalog file.';
 			banner.classList.remove('hidden');
 		}
-		console.error('Failed to load default catalog.bsc', err);
+		console.error('Failed to load default catalog', err);
 	}
 }
 

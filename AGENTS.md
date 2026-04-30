@@ -163,7 +163,8 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - The app now accepts both BSC5 fixed-width (`.bsc`, `.dat`, `.txt`) and HYG CSV v4.2 (`.csv`) files.
 - Format is detected by file extension in `loadCatalog()` (`js/app-editor-actions.js`): `.csv` → HYG, anything else → BSC.
 - `state.catalogFormat` (`'bsc'` | `'hyg'`) tracks the loaded format so `serialize()` dispatches to the correct writer.
-- HYG stars share the same internal shape as BSC stars, with six additional fields: `x`, `y`, `z` (parsecs) and `vx`, `vy`, `vz` (km/s). BSC stars and newly added stars have these set to `null`.
+- HYG stars share the same internal shape as BSC stars, with nine additional fields: `x`, `y`, `z` (parsecs), `vx`, `vy`, `vz` (km/s), and the catalog-ID fields `hygId`, `glieseId`, `primaryHygId`. BSC stars and newly added stars have all nine set to `null`.
+- Catalog-ID fields: `hygId` is the HYG sequential integer id (CSV col 0); `glieseId` is the Gliese designation string (CSV col 4, e.g. `"Gl 551"`), null if absent; `primaryHygId` is the `comp_primary` integer (CSV col 31) referencing the primary star's HYG id for secondaries in multi-star systems.
 - Unit conversion on HYG load: `pmra`/`pmdec` (mas/yr) → `pmRA`/`pmDE` (arcsec/yr) divided by 1000; `dist` (pc) → `Parallax` (arcsec) as `1/dist`. On save the reverse conversion is applied for `_edited` rows.
 - `_raw` round-trip: unedited HYG rows emit their original CSV line verbatim. Edited rows are reconstructed from the mapped fields; unmapped HYG columns (`hip`, `proper`, `bayer`, `flam`, `con`, `comp`, `lum`, `var`, etc.) are written as blank.
 - Touched files: `js/catalog-bsc.js` (renamed from `catalog.js`, exports renamed to `parseBscCatalog`/`serializeBscCatalog`), `js/catalog-hyg.js` (new), `js/app-editor-actions.js`, `js/app.js`, `js/ui.js`, `service-worker.js`, `AGENTS.md`.
