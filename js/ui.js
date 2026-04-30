@@ -100,7 +100,7 @@ export function createUI(controller) {
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
-		'f-hyg-id', 'f-hd', 'f-gliese', 'f-name',
+		'f-hyg-id', 'f-hd', 'f-gliese', 'f-proper-name', 'f-name',
 		'f-ra-h', 'f-ra-m', 'f-ra-s',
 		'f-de-sign', 'f-de-d', 'f-de-m', 'f-de-s',
 		'f-vmag', 'f-bv', 'f-sp', 'f-pmra', 'f-pmde', 'f-plx', 'f-rv',

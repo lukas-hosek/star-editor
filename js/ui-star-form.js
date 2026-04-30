@@ -53,6 +53,7 @@ export function createStarFormUI(controller, el)
 	{
 		const star = controller.selectedStar();
 		if (!star) return;
+		star.properName = el['f-proper-name'].value.trim() || null;
 		star.Name = el['f-name'].value.slice(0, 10);
 		star.ra = formHMSToRadians(
 			numOr(el['f-ra-h'].value, 0),
@@ -82,7 +83,7 @@ export function createStarFormUI(controller, el)
 
 
 	const formInputs = [
-		'f-name', 'f-ra-h', 'f-ra-m', 'f-ra-s',
+		'f-proper-name', 'f-name', 'f-ra-h', 'f-ra-m', 'f-ra-s',
 		'f-de-sign', 'f-de-d', 'f-de-m', 'f-de-s',
 		'f-vmag', 'f-bv', 'f-sp', 'f-pmra', 'f-pmde', 'f-plx', 'f-rv'
 	];
@@ -110,9 +111,10 @@ export function createStarFormUI(controller, el)
 	{
 		if (!star) return;
 		el['panel-title'].textContent = formatSidebarTitle(star);
-		el['f-hyg-id'].value = star.hygId  ?? '';
-		el['f-hd'].value    = star.HD      ?? '';
-		el['f-gliese'].value = star.glieseId ?? '';
+		el['f-hyg-id'].value     = star.hygId     ?? '';
+		el['f-hd'].value         = star.HD        ?? '';
+		el['f-gliese'].value     = star.glieseId  ?? '';
+		el['f-proper-name'].value = star.properName ?? '';
 		el['f-name'].value = star.Name ?? '';
 		const hms = radiansToFormHMS(star.ra);
 		el['f-ra-h'].value = hms.h;
