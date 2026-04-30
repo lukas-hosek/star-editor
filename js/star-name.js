@@ -230,5 +230,11 @@ function formatSidebarTitleName(name)
 export function formatSidebarTitle(star)
 {
 	const displayName = formatSidebarTitleName(star.Name);
-	return displayName ? `${displayName} (HR ${star.HR})` : `HR ${star.HR}`;
+	if (displayName && star.properName) return `${star.properName} · ${displayName}`;
+	if (displayName)              return displayName;
+	if (star.properName)          return star.properName;
+	if (star.Name?.trim())    return star.Name.trim();
+	if (star.HD  !== null)    return `HD ${star.HD}`;
+	if (star.hygId !== null)  return `HYG ${star.hygId}`;
+	return `HR ${star.HR}`;
 }

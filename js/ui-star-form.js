@@ -111,9 +111,6 @@ export function createStarFormUI(controller, el)
 	{
 		if (!star) return;
 		el['panel-title'].textContent = formatSidebarTitle(star);
-		el['f-hyg-id'].value     = star.hygId     ?? '';
-		el['f-hd'].value         = star.HD        ?? '';
-		el['f-gliese'].value     = star.glieseId  ?? '';
 		el['f-proper-name'].value = star.properName ?? '';
 		el['f-name'].value = star.Name ?? '';
 		const hms = radiansToFormHMS(star.ra);

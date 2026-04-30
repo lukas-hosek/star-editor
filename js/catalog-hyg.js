@@ -79,6 +79,7 @@ export function parseHygCatalog(text) {
 		// HYG pmra/pmdec are in mas/yr; internal pmRA/pmDE are arcsec/yr.
 		const pmra_mas  = parseNum(f[10]);
 		const pmdec_mas = parseNum(f[11]);
+		// HYG stores Cartesian position in parsecs and velocity in km/s.
 
 		const star = {
 			HR:           parseInt2(f[3]),
@@ -171,10 +172,10 @@ export function serializeHygCatalog(stars) {
 			csvNum(null),                  // absmag (not tracked)
 			star.SpType || '',             // spect (unquoted, like original)
 			csvNum(star.BV, 3),            // ci
-			csvNum(star.x,  6),            // x
+			csvNum(star.x,  6),            // x (in parsecs)
 			csvNum(star.y,  6),            // y
 			csvNum(star.z,  6),            // z
-			csvNum(star.vx, 8),            // vx
+			csvNum(star.vx, 8),            // vx (in km/s)
 			csvNum(star.vy, 8),            // vy
 			csvNum(star.vz, 8),            // vz
 			csvNum(star.ra,  16),          // rarad
