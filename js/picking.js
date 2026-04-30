@@ -37,6 +37,28 @@ export function pickStar(
 			bestI = i;
 		}
 	}
+	// If the picked star is a secondary, check whether its primary is within
+	// 5 screen pixels. If so, prefer the primary — the two stars are visually
+	// inseparable and the primary is the more meaningful selection target.
+	if (bestI !== -1) {
+		const picked = stars[bestI];
+		if (picked.primaryHygId !== null && picked.primaryHygId !== picked.hygId) {
+			for (let i = 0; i < stars.length; i++) {
+				if (stars[i].hygId !== picked.primaryHygId) continue;
+				if (altitudes && altitudes[i] < 0) break;
+				const pv = sphereDir(stars[i].ra, stars[i].dec);
+				const { nx: pnx, ny: pny, zc: pzc } = project(cam, pv);
+				if (pzc < -0.5 || !isFinite(pnx) || !isFinite(pny)) break;
+				const sv = sphereDir(picked.ra, picked.dec);
+				const { nx: snx, ny: sny } = project(cam, sv);
+				const dx = (pnx - snx) * halfW;
+				const dy = (pny - sny) * halfH;
+				if (dx * dx + dy * dy <= 25) bestI = i;
+				break;
+			}
+		}
+	}
+
 	return bestI;
 }
 
