@@ -52,6 +52,9 @@
       </div>
     </div>
     <div class="group separated">
+      <button id="btn-time-travel" type="button" aria-pressed="false" title="Time Travel">Time Travel</button>
+    </div>
+    <div class="group separated">
       <button id="btn-grid" type="button">RA/Dec Grid</button>
       <button id="btn-altaz-grid" type="button">Alt/Az Grid</button>
     </div>
@@ -82,6 +85,14 @@
         <div>LMB  - Select</div>
         <div>RMB - Look around</div>
 		<div>Wheel - Zoom</div>
+      </div>
+      <div id="time-travel-bar" class="hidden">
+        <div class="time-travel-title">Time Travel</div>
+        <input id="time-travel-slider" type="range" min="-30000" max="30000" step="1" value="0" aria-label="Time travel year offset">
+        <div class="time-travel-readout">
+          <span id="time-travel-year">Year 2000</span>
+          <button id="btn-time-travel-reset" type="button" title="Reset to present (J2000)" aria-label="Reset to present">↺</button>
+        </div>
       </div>
       <div id="banner" class="hidden"></div>
     </div>

@@ -1,26 +1,51 @@
-import { sphereDir } from './camera.js';
+import { displayedDirAndFlux } from './time-travel.js';
 
+
+// Time-travel propagation — runs unconditionally so the GLSL linker keeps
+// aPosPc / aVelPcYr / aTravelMeta as active attributes. uTravelFactor = 0 and
+// aTravelMeta.y = 0 (non-kinematic) collapse the math back to (aPos, aFlux).
+// See js/time-travel.js for the CPU mirror used by the picker and selection ring.
+const STAR_TIME_TRAVEL = `
+vec3 newPos = aPosPc + aVelPcYr * uTravelFactor;
+float newDist = max(length(newPos), 1e-10);
+// HYG Cartesian (right-handed equatorial) → renderer convention y-flip on x.
+vec3 propagatedDir = vec3(newPos.x, -newPos.y, newPos.z) / newDist;
+vec3 renderDir = mix(aPos, propagatedDir, aTravelMeta.y);
+
+float newVmag = aTravelMeta.x + 5.0 * log(newDist) / log(10.0) - 5.0;
+float propagatedFlux = pow(10.0, -newVmag / 2.5);
+// Only swap in propagated flux when the star has kinematics AND a real absmag
+// (sentinel 999 stays > 50). uTravelFactor == 0 is a no-op because newDist == orig dist.
+bool useTravelFlux = (aTravelMeta.y > 0.5) && (aTravelMeta.x < 50.0) && (uTravelFactor != 0.0);
+float effectiveFlux = useTravelFlux ? propagatedFlux : aFlux;
+`;
 
 const STAR_VS_TENT = `#version 300 es
-in vec3 aPos;
-in vec3 aColor;
-in float aFlux;
-in float aAlt;
-uniform vec3 uRight;
-uniform vec3 uUp;
-uniform vec3 uFwd;
-uniform float uTanHalfFov;
-uniform float uAspectX;
-uniform float uAspectY;
-uniform float uBrightness;
-uniform float uPointSize;
-uniform int uHorizonMode;
-uniform float uDimFactor;
-out vec3 vColor;
+in vec3 aPos;            // unit direction on the celestial sphere (sphereDir(ra, dec); dimensionless)
+in vec3 aColor;          // per-star sRGB color from B-V → blackbody temp (linear, [0..1])
+in float aFlux;          // linear flux from Vmag via Pogson 10^(-Vmag/2.5) (dimensionless ratio)
+in float aAlt;           // per-star altitude above horizon (radians; <0 = below)
+in vec3 aPosPc;          // HYG Cartesian position in parsecs (sentinel (1,0,0) when non-kinematic)
+in vec3 aVelPcYr;        // HYG Cartesian velocity in parsecs/year (zero when non-kinematic)
+in vec2 aTravelMeta;     // .x = absmag (mag, sentinel 999 = absent); .y = kinematicsFlag (1.0 or 0.0)
+uniform vec3 uRight;     // camera right basis vector in world space (unit)
+uniform vec3 uUp;        // camera up basis vector in world space (unit)
+uniform vec3 uFwd;       // camera forward basis vector in world space (unit)
+uniform float uTanHalfFov; // tan(fov / 2); stereographic projection scale (dimensionless)
+uniform float uAspectX;  // viewport aspect compensation on X (dimensionless)
+uniform float uAspectY;  // viewport aspect compensation on Y (dimensionless)
+uniform float uBrightness; // global brightness multiplier from toolbar slider (dimensionless)
+uniform float uPointSize;  // sprite point size (pixels, pre-clipping/scaling)
+uniform int uHorizonMode;  // 0 = all-sky, 1 = highlight (dim below horizon), 2 = local (cull below)
+uniform float uDimFactor;  // below-horizon dim multiplier in highlight mode (dimensionless)
+uniform float uTravelFactor; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
+out vec3 vColor;         // color × intensity passed to fragment shader (premultiplied)
 void main() {
-  float xc = dot(aPos, uRight);
-  float yc = dot(aPos, uUp);
-  float zc = dot(aPos, uFwd);
+${STAR_TIME_TRAVEL}
+  float xc = dot(renderDir, uRight);
+  float yc = dot(renderDir, uUp);
+  float zc = dot(renderDir, uFwd);
+
   if (zc < -0.5) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     gl_PointSize = 0.0;
@@ -40,32 +65,37 @@ void main() {
                      sy / (uTanHalfFov * uAspectY),
                      0.0, 1.0);
   float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
-  float intensity = aFlux * uBrightness * dimMult;
+  float intensity = effectiveFlux * uBrightness * dimMult;
 	vColor = aColor * intensity;
 	gl_PointSize = uPointSize;
 }
 `;
 
 const STAR_VS_RCOS = `#version 300 es
-in vec3 aPos;
-in vec3 aColor;
-in float aFlux;
-in float aAlt;
-uniform vec3 uRight;
-uniform vec3 uUp;
-uniform vec3 uFwd;
-uniform float uTanHalfFov;
-uniform float uAspectX;
-uniform float uAspectY;
-uniform float uBrightness;
-uniform float uPointSize;
-uniform int uHorizonMode;
-uniform float uDimFactor;
-out vec3 vColor;
+in vec3 aPos;            // unit direction on the celestial sphere (sphereDir(ra, dec); dimensionless)
+in vec3 aColor;          // per-star sRGB color from B-V → blackbody temp (linear, [0..1])
+in float aFlux;          // linear flux from Vmag via Pogson 10^(-Vmag/2.5) (dimensionless ratio)
+in float aAlt;           // per-star altitude above horizon (radians; <0 = below)
+in vec3 aPosPc;          // HYG Cartesian position in parsecs (sentinel (1,0,0) when non-kinematic)
+in vec3 aVelPcYr;        // HYG Cartesian velocity in parsecs/year (zero when non-kinematic)
+in vec2 aTravelMeta;     // .x = absmag (mag, sentinel 999 = absent); .y = kinematicsFlag (1.0 or 0.0)
+uniform vec3 uRight;     // camera right basis vector in world space (unit)
+uniform vec3 uUp;        // camera up basis vector in world space (unit)
+uniform vec3 uFwd;       // camera forward basis vector in world space (unit)
+uniform float uTanHalfFov; // tan(fov / 2); stereographic projection scale (dimensionless)
+uniform float uAspectX;  // viewport aspect compensation on X (dimensionless)
+uniform float uAspectY;  // viewport aspect compensation on Y (dimensionless)
+uniform float uBrightness; // global brightness multiplier from toolbar slider (dimensionless)
+uniform float uPointSize;  // sprite point size (pixels, pre-clipping/scaling)
+uniform int uHorizonMode;  // 0 = all-sky, 1 = highlight (dim below horizon), 2 = local (cull below)
+uniform float uDimFactor;  // below-horizon dim multiplier in highlight mode (dimensionless)
+uniform float uTravelFactor; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
+out vec3 vColor;         // color × intensity passed to fragment shader (premultiplied)
 void main() {
-	float xc = dot(aPos, uRight);
-	float yc = dot(aPos, uUp);
-	float zc = dot(aPos, uFwd);
+${STAR_TIME_TRAVEL}
+	float xc = dot(renderDir, uRight);
+	float yc = dot(renderDir, uUp);
+	float zc = dot(renderDir, uFwd);
 	if (zc < -0.5) {
 		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 		gl_PointSize = 0.0;
@@ -85,7 +115,7 @@ void main() {
 										 sy / (uTanHalfFov * uAspectY),
 										 0.0, 1.0);
 	float dimMult = (uHorizonMode == 1 && aAlt < 0.0) ? uDimFactor : 1.0;
-	float intensity = aFlux * uBrightness * dimMult;
+	float intensity = effectiveFlux * uBrightness * dimMult;
 	vec3 rawColor = aColor * intensity;
 	float peak = max(rawColor.r, max(rawColor.g, rawColor.b));
 	if (peak > 1.0) {
@@ -131,6 +161,9 @@ const STAR_ATTRIB_BINDINGS = [
 	[1, 'aColor'],
 	[2, 'aFlux'],
 	[3, 'aAlt'],
+	[4, 'aPosPc'],
+	[5, 'aVelPcYr'],
+	[6, 'aTravelMeta'],
 ];
 
 const RING_VS = `#version 300 es
@@ -277,14 +310,14 @@ export function createRendererPipeline(gl)
 			program: starProgTent,
 			uniforms: uniforms(gl, starProgTent, [
 				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
-				'uHorizonMode', 'uDimFactor',
+				'uHorizonMode', 'uDimFactor', 'uTravelFactor',
 			]),
 		},
 		rcos: {
 			program: starProgRcos,
 			uniforms: uniforms(gl, starProgRcos, [
 				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
-				'uHorizonMode', 'uDimFactor',
+				'uHorizonMode', 'uDimFactor', 'uTravelFactor',
 			]),
 		},
 	};
@@ -360,6 +393,7 @@ export function drawRenderPipeline(renderer, camera, selectedStar)
 	gl.uniform1f(starU.uPointSize, renderer.pointSize);
 	gl.uniform1i(starU.uHorizonMode, renderer.horizonMode);
 	gl.uniform1f(starU.uDimFactor, renderer.dimFactor);
+	gl.uniform1f(starU.uTravelFactor, renderer.travelFactor || 0);
 	gl.drawArrays(gl.POINTS, 0, renderer.count);
 	gl.bindVertexArray(null);
 
@@ -367,7 +401,7 @@ export function drawRenderPipeline(renderer, camera, selectedStar)
 	{
 		gl.useProgram(renderer.ringProg);
 		gl.bindVertexArray(renderer.ringVAO);
-		const starPosition = sphereDir(selectedStar.ra, selectedStar.dec);
+		const starPosition = displayedDirAndFlux(selectedStar, renderer.travelDtYears || 0).dir;
 		gl.uniform3f(renderer.ringU.uPos, starPosition[0], starPosition[1], starPosition[2]);
 		gl.uniform3f(renderer.ringU.uRight, camera.right[0], camera.right[1], camera.right[2]);
 		gl.uniform3f(renderer.ringU.uUp, camera.up[0], camera.up[1], camera.up[2]);

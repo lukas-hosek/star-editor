@@ -11,6 +11,7 @@ import {
 	setPointSize,
 	setRADecGridVisible,
 	setStarKernel,
+	setTravelFactor,
 	syncAll,
 	syncOne,
 } from './renderer.js';
@@ -143,12 +144,58 @@ export function createEditorActions(options)
 	function setAllowMoving(enabled)
 	{
 		const ui = getUI();
+		// Drag/move is locked while time-travelling: editing a star's J2000 position
+		// from a time-traveled cursor click would silently rewrite catalog values to
+		// something the user can't visually anchor.
+		if (enabled && state.timeTravelEnabled && state.timeTravelYears !== 0)
+		{
+			return;
+		}
 		state.allowMoving = !!enabled;
 		ui.setAllowMoving(state.allowMoving);
 		if (!state.allowMoving)
 		{
 			cancelStarDrag();
 		}
+	}
+
+
+	function applyTravelFactor()
+	{
+		const dt = state.timeTravelEnabled ? state.timeTravelYears : 0;
+		setTravelFactor(renderer, dt);
+		// Force the move toggle off when dt becomes non-zero, and re-enable the
+		// move button's hard-disabled state via the UI.
+		const moveLocked = dt !== 0;
+		if (moveLocked && state.allowMoving)
+		{
+			state.allowMoving = false;
+			getUI().setAllowMoving(false);
+			cancelStarDrag();
+		}
+		const ui = getUI();
+		if (ui.setMoveLocked) ui.setMoveLocked(moveLocked);
+	}
+
+
+	function setTimeTravelEnabled(enabled)
+	{
+		state.timeTravelEnabled = !!enabled;
+		// Reset the slider to 0 whenever the toggle is flipped so re-enabling
+		// doesn't snap stars to a stale offset.
+		if (!state.timeTravelEnabled) state.timeTravelYears = 0;
+		applyTravelFactor();
+		const ui = getUI();
+		if (ui.setTimeTravelEnabled) ui.setTimeTravelEnabled(state.timeTravelEnabled);
+		requestRender();
+	}
+
+
+	function setTimeTravelYears(years)
+	{
+		state.timeTravelYears = years | 0;
+		applyTravelFactor();
+		requestRender();
 	}
 
 
@@ -296,6 +343,8 @@ export function createEditorActions(options)
 		setStarSize: setStarSizePreset,
 		setRADecGridVisible: (visible) => setGridVisibility('radec', visible),
 		setAltAzGridVisible: (visible) => setGridVisibility('altaz', visible),
+		setTimeTravelEnabled,
+		setTimeTravelYears,
 		onStarEdited,
 		selectStar,
 		addStarAtPixel,

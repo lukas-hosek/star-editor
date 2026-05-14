@@ -35,6 +35,8 @@ const state = {
 	showAltAzGrid: false,   // Whether the Alt/Az grid overlay is visible.
 	isDirty: false,         // Tracks unsaved catalog edits for status text and unload warnings.
 	catalogFormat: 'bsc',  // Format of the loaded catalog: 'bsc' | 'hyg'. Controls serialization.
+	timeTravelEnabled: false, // Whether time travel mode is active.
+	timeTravelYears: 0,     // Year offset from J2000; positive = future, negative = past.
 };
 
 const skyState = {
@@ -105,6 +107,8 @@ const {
 	setStarSize,
 	setRADecGridVisible,
 	setAltAzGridVisible,
+	setTimeTravelEnabled,
+	setTimeTravelYears,
 	onStarEdited,
 } = editorActions;
 
@@ -132,6 +136,14 @@ const controller = {
 
 	get altAzGridVisible() {
 		return state.showAltAzGrid;
+	},
+
+	get timeTravelEnabled() {
+		return state.timeTravelEnabled;
+	},
+
+	get timeTravelYears() {
+		return state.timeTravelYears;
 	},
 
 	get fileHandle() {
@@ -182,6 +194,8 @@ const controller = {
 	setStarSize,
 	setRADecGridVisible,
 	setAltAzGridVisible,
+	setTimeTravelEnabled,
+	setTimeTravelYears,
 	onStarEdited,
 
 	setSkyMode(mode) {
@@ -226,6 +240,7 @@ ui.setAllowMoving(state.allowMoving);
 controller.setStarSize(state.starSize);
 controller.setRADecGridVisible(state.showRADecGrid);
 controller.setAltAzGridVisible(state.showAltAzGrid);
+controller.setTimeTravelEnabled(state.timeTravelEnabled);
 ui.showNoSelection();
 editorActions.updateStatus();
 

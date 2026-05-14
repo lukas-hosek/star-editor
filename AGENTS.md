@@ -163,11 +163,25 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - The app now accepts both BSC5 fixed-width (`.bsc`, `.dat`, `.txt`) and HYG CSV v4.2 (`.csv`) files.
 - Format is detected by file extension in `loadCatalog()` (`js/app-editor-actions.js`): `.csv` → HYG, anything else → BSC.
 - `state.catalogFormat` (`'bsc'` | `'hyg'`) tracks the loaded format so `serialize()` dispatches to the correct writer.
-- HYG stars share the same internal shape as BSC stars, with nine additional fields: `x`, `y`, `z` (parsecs), `vx`, `vy`, `vz` (km/s), and the catalog-ID fields `hygId`, `glieseId`, `primaryHygId`. BSC stars and newly added stars have all nine set to `null`.
+- HYG stars share the same internal shape as BSC stars, with nine additional fields: `x`, `y`, `z` (parsecs), `vx`, `vy`, `vz` (parsecs/year — verified against Dubhe), and the catalog-ID fields `hygId`, `glieseId`, `primaryHygId`. BSC stars and newly added stars have all nine set to `null`.
 - Catalog-ID fields: `hygId` is the HYG sequential integer id (CSV col 0); `glieseId` is the Gliese designation string (CSV col 4, e.g. `"Gl 551"`), null if absent; `primaryHygId` is the `comp_primary` integer (CSV col 31) referencing the primary star's HYG id for secondaries in multi-star systems.
 - Unit conversion on HYG load: `pmra`/`pmdec` (mas/yr) → `pmRA`/`pmDE` (arcsec/yr) divided by 1000; `dist` (pc) → `Parallax` (arcsec) as `1/dist`. On save the reverse conversion is applied.
 - All HYG rows are reconstructed from the mapped fields on save; unmapped HYG columns (`hip`, `proper`, `bayer`, `flam`, `con`, `comp`, `lum`, `var`, etc.) are written as blank.
 - Touched files: `js/catalog-bsc.js` (renamed from `catalog.js`, exports renamed to `parseBscCatalog`/`serializeBscCatalog`), `js/catalog-hyg.js` (new), `js/app-editor-actions.js`, `js/app.js`, `js/ui.js`, `service-worker.js`, `AGENTS.md`.
+
+## Time Travel
+
+- A "Time Travel" toolbar button toggles a year-offset mode. When active, a bar (`#time-travel-bar`) appears bottom-center over the sky canvas with a range slider (−30000 to +30000 years from J2000), a year readout, and a `↺` reset button.
+- All per-star propagation happens in the **vertex shader** — slider drag only updates one float uniform, no buffer re-uploads. Critical for performance at 100K+ stars.
+- New per-star GPU attributes (locations 4–6, bound in `STAR_ATTRIB_BINDINGS` in `js/renderer-pipeline.js`): `aPosPc` (vec3, HYG `x/y/z` in parsecs), `aVelPcYr` (vec3, HYG `vx/vy/vz` in parsecs/year), `aTravelMeta` (vec2 = `[absmag, kinematicsFlag]`). Stars with non-kinematic data get a sentinel `aPosPc = (1, 0, 0)` (keeps `length()` non-zero so `mix()` doesn't propagate NaN) and `kinematicsFlag = 0.0`, so the shader's `mix(aPos, propagatedDir, kinematicsFlag)` falls back to the catalog `aPos`.
+- The shader propagates `newPos = aPosPc + aVelPcYr * uTravelFactor` where `uTravelFactor = dtYears` (HYG velocities are already in pc/yr, no conversion needed). It normalizes with a y-flip (HYG cartesian → `sphereDir` convention) and recomputes flux from `absmag` when present (`aTravelMeta.x < 50.0` gates the absmag sentinel `999`). When `uTravelFactor == 0.0` the original path is taken verbatim.
+- `kinematicsFlag` is `1.0` only when `x/y/z/vx/vy/vz` are all finite AND `Parallax > 1/99999` (avoids HYG's sentinel-distance trap where `dist = 100000` pc fabricates kinematics).
+- Catalog read: `js/catalog-hyg.js` now parses HYG column 14 (`absmag`) and the serializer writes it back. BSC stars and newly-added stars have `absmag = null`.
+- CPU mirror in `js/time-travel.js`: `displayedDirAndFlux(star, dtYears)` reproduces the shader math for the picker (`js/picking.js` accepts a `dtYears` param and hits with displayed positions) and the selection ring (`drawRenderPipeline` reads `renderer.travelDtYears` so the ring follows the time-traveled position). `formatTravelYear(dtYears)` produces `"Year 2500"` / `"Year 500 BCE"` labels using astronomical year convention (year 0 = 1 BCE).
+- State and wiring: `state.timeTravelEnabled` / `state.timeTravelYears` in `js/app.js`; `setTimeTravelEnabled` / `setTimeTravelYears` actions in `js/app-editor-actions.js` call `setTravelFactor(renderer, dt)` (in `js/renderer.js`) which stores `travelDtYears` and `travelFactor = dtYears` (same value — HYG velocities are pc/yr, so no unit conversion is needed in the shader).
+- Drag interlock: when `dt !== 0`, dragging stars is disabled. `setAllowMoving(true)` is a no-op while the lock is active, the `#btn-move` button is hard-disabled via `ui.setMoveLocked(true)`, and any active drag is cancelled. Move re-enables when dt returns to 0 or time travel is disabled.
+- UI keyboard nudge on `#time-travel-slider`: arrow keys move by ±10 years, `Shift+arrow` by ±100. The slider stays at `step="1"` so mouse drag remains 1-year precise; the keyboard step is owned by a `keydown` handler in `js/ui.js`.
+- Touched files: `js/catalog-hyg.js`, `js/catalog-bsc.js`, `js/time-travel.js` (new), `js/renderer-pipeline.js`, `js/renderer-star-buffer.js`, `js/renderer.js`, `js/picking.js`, `js/app.js`, `js/app-editor-actions.js`, `js/app-canvas-interactions.js`, `js/ui.js`, `index.html`, `styles.css`, `AGENTS.md`.
 
 ## Manage dialog
 

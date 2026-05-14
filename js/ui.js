@@ -5,6 +5,11 @@
 import { createManageUI } from './ui-manage.js';
 import { createSkyControls } from './ui-sky-controls.js';
 import { createStarFormUI } from './ui-star-form.js';
+import { formatTravelYear } from './time-travel.js';
+
+
+const TIME_TRAVEL_MIN = -30000;
+const TIME_TRAVEL_MAX = 30000;
 
 
 // ---------- File pickers ----------
@@ -99,6 +104,7 @@ export function createUI(controller) {
 	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-manage', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
+		'btn-time-travel', 'time-travel-bar', 'time-travel-slider', 'time-travel-year', 'btn-time-travel-reset',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-proper-name', 'f-name',
@@ -191,6 +197,43 @@ export function createUI(controller) {
 		controller.setAltAzGridVisible(!controller.altAzGridVisible);
 	});
 
+	function refreshTimeTravelYear() {
+		el['time-travel-year'].textContent = formatTravelYear(parseInt(el['time-travel-slider'].value, 10));
+	}
+
+	el['btn-time-travel'].addEventListener('click', () => {
+		controller.setTimeTravelEnabled(!controller.timeTravelEnabled);
+	});
+
+	el['time-travel-slider'].addEventListener('input', () => {
+		const years = parseInt(el['time-travel-slider'].value, 10);
+		refreshTimeTravelYear();
+		controller.setTimeTravelYears(years);
+	});
+
+	// Keyboard nudge: arrows = ±10 years, Shift+arrows = ±100. The slider stays at
+	// step="1" so mouse drag stays precise; this handler owns the keyboard step.
+	el['time-travel-slider'].addEventListener('keydown', (event) => {
+		let delta = 0;
+		if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') delta = -1;
+		else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') delta = 1;
+		if (delta === 0) return;
+		event.preventDefault();
+		const step = event.shiftKey ? 100 : 10;
+		const current = parseInt(el['time-travel-slider'].value, 10);
+		const next = Math.max(TIME_TRAVEL_MIN, Math.min(TIME_TRAVEL_MAX, current + delta * step));
+		if (next === current) return;
+		el['time-travel-slider'].value = next;
+		refreshTimeTravelYear();
+		controller.setTimeTravelYears(next);
+	});
+
+	el['btn-time-travel-reset'].addEventListener('click', () => {
+		el['time-travel-slider'].value = 0;
+		refreshTimeTravelYear();
+		controller.setTimeTravelYears(0);
+	});
+
 	// Brightness slider: log10 gain, 0..+2 → ×1..×100.
 	el['brightness'].addEventListener('input', () => {
 		const sliderValue = parseFloat(el['brightness'].value);
@@ -241,12 +284,39 @@ export function createUI(controller) {
 	}
 
 
+	function setTimeTravelEnabled(active) {
+		el['btn-time-travel'].classList.toggle('active', active);
+		el['btn-time-travel'].setAttribute('aria-pressed', active ? 'true' : 'false');
+		el['time-travel-bar'].classList.toggle('hidden', !active);
+		if (active) {
+			// Reset the slider when opening so re-enabling doesn't snap to a stale year.
+			el['time-travel-slider'].value = 0;
+			refreshTimeTravelYear();
+		}
+	}
+
+
+	function setMoveLocked(locked) {
+		moveLocked = !!locked;
+		refreshMoveButtonDisabled();
+	}
+
+
+	let moveLocked = false;
+	let catalogLoaded = false;
+
 	function setCatalogLoaded(loaded) {
+		catalogLoaded = loaded;
 		el['btn-save'].disabled = !loaded;
 		el['btn-save-as'].disabled = !loaded;
 		el['btn-manage'].disabled = !loaded;
 		el['btn-add'].disabled = !loaded;
-		el['btn-move'].disabled = !loaded;
+		el['btn-move'].disabled = !loaded || moveLocked;
+	}
+
+
+	function refreshMoveButtonDisabled() {
+		el['btn-move'].disabled = !catalogLoaded || moveLocked;
 	}
 
 	const skyControls = createSkyControls(controller, el);
@@ -264,6 +334,8 @@ export function createUI(controller) {
 		setStarSize,
 		setRADecGridVisible,
 		setAltAzGridVisible,
+		setTimeTravelEnabled,
+		setMoveLocked,
 		setCatalogLoaded,
 		focusName: starForm.focusName,
 		syncSkyTime: skyControls.syncSkyTime,

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'star-editor-v7';
+const CACHE_NAME = 'star-editor-v13';
 const APP_ASSETS = [
 	'./',
 	'./index.html',
@@ -28,6 +28,7 @@ const APP_ASSETS = [
 	'./js/sky.js',
 	'./js/spectral.js',
 	'./js/star-name.js',
+	'./js/time-travel.js',
 	'./js/ui-manage.js',
 	'./js/ui-sky-controls.js',
 	'./js/ui-star-form.js',

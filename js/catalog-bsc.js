@@ -127,6 +127,7 @@ export function parseBscCatalog(text) {
 			ra, dec,
 
 			Vmag: parseFloat(vmagStr),
+			absmag: null,
 			BV: parseFloatBlank(slice(line, 110, 114)),
 			UB: parseFloatBlank(slice(line, 116, 120)),
 			RI: parseFloatBlank(slice(line, 122, 126)),
@@ -136,6 +137,9 @@ export function parseBscCatalog(text) {
 			pmDE: parseFloatBlank(slice(line, 155, 160)),
 			Parallax: parseFloatBlank(slice(line, 162, 166)),
 			RadVel: parseIntBlank(slice(line, 167, 170)),
+
+			x: null, y: null, z: null,
+			vx: null, vy: null, vz: null,
 
 			hygId:        null,
 			glieseId:     null,
@@ -290,6 +294,7 @@ export function makeNewStar({ ra, dec, HR }) {
 		UB: null,
 		RI: null,
 		SpType: '',
+		absmag: null,
 		pmRA: null,
 		pmDE: null,
 		Parallax: null,

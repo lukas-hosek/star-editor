@@ -82,7 +82,8 @@ export function createCanvasInteractions(options)
 				return;
 			}
 			const alts = skyState.mode === 'local' ? skyState.altitudes : null;
-			const i = pickStar(camera, state.stars, px, py, 12, renderer.brightness, 0.4, alts);
+			const dt = state.timeTravelEnabled ? state.timeTravelYears : 0;
+			const i = pickStar(camera, state.stars, px, py, 12, renderer.brightness, 0.4, alts, dt);
 			if (i >= 0)
 			{
 				const wasSelected = i === state.selectedIndex;

@@ -49,6 +49,8 @@ export function createRenderer(canvas, overlayCanvas)
 		horizonMode: 0,
 		dimFactor: 0.18,
 		zenith: null,
+		travelDtYears: 0,
+		travelFactor: 0,
 	};
 
 	gl.clearColor(0, 0, 0, 1);
@@ -100,6 +102,16 @@ export function setHorizonMode(renderer, mode, dimFactor)
 export function setZenith(renderer, zenith)
 {
 	renderer.zenith = zenith;
+}
+
+
+// Set the time-travel offset in years (negative = past). HYG velocities are in
+// parsecs/year, so the shader's propagation is simply pos + vel * dtYears — the
+// uniform IS the year offset, no conversion needed.
+export function setTravelFactor(renderer, dtYears)
+{
+	renderer.travelDtYears = dtYears;
+	renderer.travelFactor = dtYears;
 }
 
 
