@@ -1,10 +1,9 @@
 import { sphereDir } from './camera.js';
-import { hasKinematics } from './time-travel.js';
 
 
-// Sentinel for "absolute magnitude unknown" in aTravelMeta.x. Real absmags fit in
-// roughly [-10, +20]; 999 is comfortably outside that range. The vertex shader uses
-// aTravelMeta.x < 50.0 as the "absmag is present" check.
+// Sentinel for "absolute magnitude unknown" in aAbsMag. Real absmags fit in
+// roughly [-10, +20]; 999 is comfortably outside that range. The vertex shader
+// uses aAbsMag < 50.0 as the "absmag is present" check for flux recalculation.
 const ABSMAG_SENTINEL = 999;
 
 
@@ -16,7 +15,7 @@ export function createStarBuffers(gl, starProg)
 	const aAltLoc = gl.getAttribLocation(starProg, 'aAlt');
 	const aPosPcLoc = gl.getAttribLocation(starProg, 'aPosPc');
 	const aVelPcYrLoc = gl.getAttribLocation(starProg, 'aVelPcYr');
-	const aTravelMetaLoc = gl.getAttribLocation(starProg, 'aTravelMeta');
+	const aAbsMagLoc = gl.getAttribLocation(starProg, 'aAbsMag');
 
 	const posBuf = gl.createBuffer();
 	const colBuf = gl.createBuffer();
@@ -24,7 +23,7 @@ export function createStarBuffers(gl, starProg)
 	const altBuf = gl.createBuffer();
 	const posPcBuf = gl.createBuffer();
 	const velBuf = gl.createBuffer();
-	const metaBuf = gl.createBuffer();
+	const absmagBuf = gl.createBuffer();
 
 	const vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
@@ -46,9 +45,9 @@ export function createStarBuffers(gl, starProg)
 	gl.bindBuffer(gl.ARRAY_BUFFER, velBuf);
 	gl.enableVertexAttribArray(aVelPcYrLoc);
 	gl.vertexAttribPointer(aVelPcYrLoc, 3, gl.FLOAT, false, 0, 0);
-	gl.bindBuffer(gl.ARRAY_BUFFER, metaBuf);
-	gl.enableVertexAttribArray(aTravelMetaLoc);
-	gl.vertexAttribPointer(aTravelMetaLoc, 2, gl.FLOAT, false, 0, 0);
+	gl.bindBuffer(gl.ARRAY_BUFFER, absmagBuf);
+	gl.enableVertexAttribArray(aAbsMagLoc);
+	gl.vertexAttribPointer(aAbsMagLoc, 1, gl.FLOAT, false, 0, 0);
 	gl.bindVertexArray(null);
 
 	return {
@@ -58,7 +57,7 @@ export function createStarBuffers(gl, starProg)
 		altBuf,
 		posPcBuf,
 		velBuf,
-		metaBuf,
+		absmagBuf,
 		vao,
 		posCPU: new Float32Array(0),
 		colCPU: new Float32Array(0),
@@ -66,7 +65,7 @@ export function createStarBuffers(gl, starProg)
 		altCPU: new Float32Array(0),
 		posPcCPU: new Float32Array(0),
 		velCPU: new Float32Array(0),
-		metaCPU: new Float32Array(0),
+		absmagCPU: new Float32Array(0),
 		capacity: 0,
 		count: 0,
 	};
@@ -84,21 +83,21 @@ function ensureCapacity(renderer, requiredCount)
 	const oldAltitudes = renderer.altCPU;
 	const oldPosPc = renderer.posPcCPU;
 	const oldVel = renderer.velCPU;
-	const oldMeta = renderer.metaCPU;
+	const oldAbsmag = renderer.absmagCPU;
 	renderer.posCPU = new Float32Array(nextCapacity * 3);
 	renderer.colCPU = new Float32Array(nextCapacity * 3);
 	renderer.fluxCPU = new Float32Array(nextCapacity);
 	renderer.altCPU = new Float32Array(nextCapacity);
 	renderer.posPcCPU = new Float32Array(nextCapacity * 3);
 	renderer.velCPU = new Float32Array(nextCapacity * 3);
-	renderer.metaCPU = new Float32Array(nextCapacity * 2);
+	renderer.absmagCPU = new Float32Array(nextCapacity);
 	renderer.posCPU.set(oldPositions);
 	renderer.colCPU.set(oldColors);
 	renderer.fluxCPU.set(oldFluxes);
 	renderer.altCPU.set(oldAltitudes);
 	renderer.posPcCPU.set(oldPosPc);
 	renderer.velCPU.set(oldVel);
-	renderer.metaCPU.set(oldMeta);
+	renderer.absmagCPU.set(oldAbsmag);
 	renderer.capacity = nextCapacity;
 	const { gl } = renderer;
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.posBuf);
@@ -113,11 +112,14 @@ function ensureCapacity(renderer, requiredCount)
 	gl.bufferData(gl.ARRAY_BUFFER, renderer.posPcCPU.byteLength, gl.DYNAMIC_DRAW);
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.velBuf);
 	gl.bufferData(gl.ARRAY_BUFFER, renderer.velCPU.byteLength, gl.DYNAMIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.metaBuf);
-	gl.bufferData(gl.ARRAY_BUFFER, renderer.metaCPU.byteLength, gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.absmagBuf);
+	gl.bufferData(gl.ARRAY_BUFFER, renderer.absmagCPU.byteLength, gl.DYNAMIC_DRAW);
 }
 
 
+// Stars without HYG kinematics get the raw catalog values (null → 0 via Float32Array
+// coercion), which produces a degenerate propagated direction. The time-travel
+// feature is HYG-only; BSC stars are expected to misbehave during animation.
 function writeStarAt(renderer, index, star)
 {
 	const position = sphereDir(star.ra, star.dec);
@@ -128,31 +130,13 @@ function writeStarAt(renderer, index, star)
 	renderer.colCPU[3 * index + 1] = star.color[1];
 	renderer.colCPU[3 * index + 2] = star.color[2];
 	renderer.fluxCPU[index] = star.flux;
-
-	const kinematic = hasKinematics(star);
-	if (kinematic)
-	{
-		renderer.posPcCPU[3 * index]     = star.x;
-		renderer.posPcCPU[3 * index + 1] = star.y;
-		renderer.posPcCPU[3 * index + 2] = star.z;
-		renderer.velCPU[3 * index]     = star.vx;
-		renderer.velCPU[3 * index + 1] = star.vy;
-		renderer.velCPU[3 * index + 2] = star.vz;
-	}
-	else
-	{
-		// Non-kinematic stars: aTravelMeta.y = 0 makes the shader's mix() ignore the
-		// propagated value, but we still need a finite non-zero vector here so
-		// length(newPos) doesn't collapse to ~0 and propagate NaN through mix().
-		renderer.posPcCPU[3 * index]     = 1;
-		renderer.posPcCPU[3 * index + 1] = 0;
-		renderer.posPcCPU[3 * index + 2] = 0;
-		renderer.velCPU[3 * index]     = 0;
-		renderer.velCPU[3 * index + 1] = 0;
-		renderer.velCPU[3 * index + 2] = 0;
-	}
-	renderer.metaCPU[2 * index]     = (star.absmag !== null && Number.isFinite(star.absmag)) ? star.absmag : ABSMAG_SENTINEL;
-	renderer.metaCPU[2 * index + 1] = kinematic ? 1 : 0;
+	renderer.posPcCPU[3 * index]     = star.x;
+	renderer.posPcCPU[3 * index + 1] = star.y;
+	renderer.posPcCPU[3 * index + 2] = star.z;
+	renderer.velCPU[3 * index]     = star.vx;
+	renderer.velCPU[3 * index + 1] = star.vy;
+	renderer.velCPU[3 * index + 2] = star.vz;
+	renderer.absmagCPU[index] = (star.absmag !== null && Number.isFinite(star.absmag)) ? star.absmag : ABSMAG_SENTINEL;
 }
 
 
@@ -169,8 +153,8 @@ function uploadStarSlice(renderer, index, count)
 	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.posPcCPU.subarray(index * 3, (index + count) * 3));
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.velBuf);
 	gl.bufferSubData(gl.ARRAY_BUFFER, index * 12, renderer.velCPU.subarray(index * 3, (index + count) * 3));
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.metaBuf);
-	gl.bufferSubData(gl.ARRAY_BUFFER, index * 8, renderer.metaCPU.subarray(index * 2, (index + count) * 2));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.absmagBuf);
+	gl.bufferSubData(gl.ARRAY_BUFFER, index * 4, renderer.absmagCPU.subarray(index, index + count));
 }
 
 

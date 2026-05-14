@@ -9,27 +9,15 @@
 import { sphereDir } from './camera.js';
 
 
-// HYG sentinel distance (100000 pc) gate — matches the Manage dialog's filter and
-// keeps stars with unknown distance from "moving" based on a fabricated baseline.
-const PARALLAX_MIN = 1 / 99999;
-
-
-// True iff the star has all six HYG Cartesian fields finite AND a real parallax.
-// Stars without this are treated as non-kinematic and stay at their catalog positions.
-export function hasKinematics(star)
-{
-	return Number.isFinite(star.x) && Number.isFinite(star.y) && Number.isFinite(star.z)
-		&& Number.isFinite(star.vx) && Number.isFinite(star.vy) && Number.isFinite(star.vz)
-		&& star.Parallax !== null && star.Parallax > PARALLAX_MIN;
-}
-
-
 // Single-star CPU mirror of the vertex shader's propagation. Returns the renderer-
 // convention unit direction vector and the apparent flux at the given year offset.
-// Falls back to the catalog values when dtYears is 0 or the star lacks kinematics.
+// At dtYears = 0 we short-circuit to the catalog values to avoid producing NaNs for
+// stars that lack HYG kinematics (BSC stars, newly added stars). Once time travel is
+// active those stars propagate from whatever (likely zero) values they carry — the
+// resulting direction may be degenerate and that's by design.
 export function displayedDirAndFlux(star, dtYears)
 {
-	if (dtYears === 0 || !hasKinematics(star))
+	if (dtYears === 0)
 	{
 		return { dir: sphereDir(star.ra, star.dec), flux: star.flux };
 	}
@@ -40,14 +28,8 @@ export function displayedDirAndFlux(star, dtYears)
 	const newDist = Math.sqrt(nx * nx + ny * ny + nz * nz);
 	// HYG cartesian → renderer convention applies a y-flip; see sphereDir in camera.js.
 	const dir = [nx / newDist, -ny / newDist, nz / newDist];
-
-	let flux = star.flux;
-	if (star.absmag !== null && Number.isFinite(star.absmag))
-	{
-		const newVmag = star.absmag + 5 * Math.log10(newDist) - 5;
-		flux = Math.pow(10, -newVmag / 2.5);
-	}
-
+	const newVmag = star.absmag + 5 * Math.log10(newDist) - 5;
+	const flux = Math.pow(10, -newVmag / 2.5);
 	return { dir, flux };
 }
 
