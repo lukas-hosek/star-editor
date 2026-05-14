@@ -281,6 +281,8 @@ export function serializeBscCatalog(stars) {
 
 // --- Construction of a new star ------------------------------------
 export function makeNewStar({ ra, dec, HR }) {
+	const DIST_PC = 20;
+	const cd = Math.cos(dec);
 	const star = {
 		HR,
 		Name: '',
@@ -294,17 +296,18 @@ export function makeNewStar({ ra, dec, HR }) {
 		UB: null,
 		RI: null,
 		SpType: '',
-		absmag: null,
-		pmRA: null,
-		pmDE: null,
-		Parallax: null,
+		// Vmag=0 at 20 pc; absmag = Vmag - 5·log10(dist/10)
+		absmag: -5 * Math.log10(DIST_PC / 10),
+		pmRA: 0,
+		pmDE: 0,
+		Parallax: 1 / DIST_PC,
 		RadVel: null,
-		x: null,
-		y: null,
-		z: null,
-		vx: null,
-		vy: null,
-		vz: null,
+		x: DIST_PC * cd * Math.cos(ra),
+		y: DIST_PC * cd * Math.sin(ra),
+		z: DIST_PC * Math.sin(dec),
+		vx: 0,
+		vy: 0,
+		vz: 0,
 		hygId:        null,
 		glieseId:     null,
 		properName:   null,

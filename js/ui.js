@@ -104,7 +104,7 @@ export function createUI(controller) {
 	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-manage', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
-		'btn-time-travel', 'time-travel-bar', 'time-travel-slider', 'time-travel-year', 'btn-time-travel-bake',
+		'btn-time-travel', 'time-travel-bar', 'time-travel-slider', 'time-travel-year', 'btn-time-travel-bake', 'usage-hint',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-proper-name', 'f-name',
@@ -287,6 +287,7 @@ export function createUI(controller) {
 		el['btn-time-travel'].classList.toggle('active', active);
 		el['btn-time-travel'].setAttribute('aria-pressed', active ? 'true' : 'false');
 		el['time-travel-bar'].classList.toggle('hidden', !active);
+		el['usage-hint'].classList.toggle('hidden', active);
 		if (active) {
 			// Reset the slider when opening so re-enabling doesn't snap to a stale year.
 			el['time-travel-slider'].value = 0;
