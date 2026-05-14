@@ -1,23 +1,35 @@
 import { displayedDirAndFlux } from './time-travel.js';
 
 
-// Time-travel propagation — runs unconditionally so the GLSL linker keeps
-// aPosPc / aVelPcYr / aTravelMeta as active attributes. uTravelFactor = 0 and
-// aTravelMeta.y = 0 (non-kinematic) collapse the math back to (aPos, aFlux).
-// See js/time-travel.js for the CPU mirror used by the picker and selection ring.
-const STAR_TIME_TRAVEL = `
-vec3 newPos = aPosPc + aVelPcYr * uTravelFactor;
-float newDist = max(length(newPos), 1e-10);
-// HYG Cartesian (right-handed equatorial) → renderer convention y-flip on x.
-vec3 propagatedDir = vec3(newPos.x, -newPos.y, newPos.z) / newDist;
-vec3 renderDir = mix(aPos, propagatedDir, aTravelMeta.y);
+// Time-travel propagation as a vertex-shader function. Runs unconditionally so the
+// GLSL linker keeps aPosPc / aVelPcYr / aTravelMeta as active attributes;
+// uTimeTravelYears = 0 and aTravelMeta.y = 0 (non-kinematic) collapse the math back
+// to (aPos, aFlux). See js/time-travel.js for the CPU mirror used by the picker and
+// selection ring. Globals (aPos*, aFlux, aTravelMeta, uTimeTravelYears) are read
+// directly — GLSL functions can access shader-scope `in`/`uniform` variables.
+const STAR_TIME_TRAVEL_FN = `
+struct TimeTravelResult {
+  vec3 dir;
+  float flux;
+};
 
-float newVmag = aTravelMeta.x + 5.0 * log(newDist) / log(10.0) - 5.0;
-float propagatedFlux = pow(10.0, -newVmag / 2.5);
-// Only swap in propagated flux when the star has kinematics AND a real absmag
-// (sentinel 999 stays > 50). uTravelFactor == 0 is a no-op because newDist == orig dist.
-bool useTravelFlux = (aTravelMeta.y > 0.5) && (aTravelMeta.x < 50.0) && (uTravelFactor != 0.0);
-float effectiveFlux = useTravelFlux ? propagatedFlux : aFlux;
+TimeTravelResult computeTimeTravel() {
+  vec3 newPos = aPosPc + aVelPcYr * uTimeTravelYears;
+  float newDist = max(length(newPos), 1e-10);
+  // HYG Cartesian (right-handed equatorial) → renderer convention y-flip on x.
+  vec3 propagatedDir = vec3(newPos.x, -newPos.y, newPos.z) / newDist;
+
+  float newVmag = aTravelMeta.x + 5.0 * log(newDist) / log(10.0) - 5.0;
+  float propagatedFlux = pow(10.0, -newVmag / 2.5);
+  // Only swap in propagated flux when the star has kinematics AND a real absmag
+  // (sentinel 999 stays > 50). uTimeTravelYears == 0 is a no-op because newDist == orig dist.
+  bool useTravelFlux = (aTravelMeta.y > 0.5) && (aTravelMeta.x < 50.0) && (uTimeTravelYears != 0.0);
+
+  TimeTravelResult result;
+  result.dir = mix(aPos, propagatedDir, aTravelMeta.y);
+  result.flux = useTravelFlux ? propagatedFlux : aFlux;
+  return result;
+}
 `;
 
 const STAR_VS_TENT = `#version 300 es
@@ -38,10 +50,14 @@ uniform float uBrightness; // global brightness multiplier from toolbar slider (
 uniform float uPointSize;  // sprite point size (pixels, pre-clipping/scaling)
 uniform int uHorizonMode;  // 0 = all-sky, 1 = highlight (dim below horizon), 2 = local (cull below)
 uniform float uDimFactor;  // below-horizon dim multiplier in highlight mode (dimensionless)
-uniform float uTravelFactor; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
+uniform float uTimeTravelYears; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
 out vec3 vColor;         // color × intensity passed to fragment shader (premultiplied)
+${STAR_TIME_TRAVEL_FN}
 void main() {
-${STAR_TIME_TRAVEL}
+  TimeTravelResult travel = computeTimeTravel();
+  vec3 renderDir = travel.dir;
+  float effectiveFlux = travel.flux;
+
   float xc = dot(renderDir, uRight);
   float yc = dot(renderDir, uUp);
   float zc = dot(renderDir, uFwd);
@@ -89,10 +105,14 @@ uniform float uBrightness; // global brightness multiplier from toolbar slider (
 uniform float uPointSize;  // sprite point size (pixels, pre-clipping/scaling)
 uniform int uHorizonMode;  // 0 = all-sky, 1 = highlight (dim below horizon), 2 = local (cull below)
 uniform float uDimFactor;  // below-horizon dim multiplier in highlight mode (dimensionless)
-uniform float uTravelFactor; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
+uniform float uTimeTravelYears; // time travel offset in years from J2000 (matches HYG pc/yr velocity)
 out vec3 vColor;         // color × intensity passed to fragment shader (premultiplied)
+${STAR_TIME_TRAVEL_FN}
 void main() {
-${STAR_TIME_TRAVEL}
+	TimeTravelResult travel = computeTimeTravel();
+	vec3 renderDir = travel.dir;
+	float effectiveFlux = travel.flux;
+
 	float xc = dot(renderDir, uRight);
 	float yc = dot(renderDir, uUp);
 	float zc = dot(renderDir, uFwd);
@@ -310,14 +330,14 @@ export function createRendererPipeline(gl)
 			program: starProgTent,
 			uniforms: uniforms(gl, starProgTent, [
 				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
-				'uHorizonMode', 'uDimFactor', 'uTravelFactor',
+				'uHorizonMode', 'uDimFactor', 'uTimeTravelYears',
 			]),
 		},
 		rcos: {
 			program: starProgRcos,
 			uniforms: uniforms(gl, starProgRcos, [
 				'uRight', 'uUp', 'uFwd', 'uTanHalfFov', 'uAspectX', 'uAspectY', 'uBrightness', 'uPointSize',
-				'uHorizonMode', 'uDimFactor', 'uTravelFactor',
+				'uHorizonMode', 'uDimFactor', 'uTimeTravelYears',
 			]),
 		},
 	};
@@ -393,7 +413,7 @@ export function drawRenderPipeline(renderer, camera, selectedStar)
 	gl.uniform1f(starU.uPointSize, renderer.pointSize);
 	gl.uniform1i(starU.uHorizonMode, renderer.horizonMode);
 	gl.uniform1f(starU.uDimFactor, renderer.dimFactor);
-	gl.uniform1f(starU.uTravelFactor, renderer.travelFactor || 0);
+	gl.uniform1f(starU.uTimeTravelYears, renderer.travelFactor || 0);
 	gl.drawArrays(gl.POINTS, 0, renderer.count);
 	gl.bindVertexArray(null);
 
