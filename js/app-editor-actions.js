@@ -3,6 +3,7 @@
 import { makeNewStar, parseBscCatalog, refreshStarPhotometry, serializeBscCatalog } from './catalog-bsc.js';
 import { parseHygCatalog, serializeHygCatalog } from './catalog-hyg.js';
 import { pixelToRADec } from './picking.js';
+import { bakeStar } from './time-travel.js';
 import {
 	appendStar,
 	removeAt,
@@ -199,6 +200,36 @@ export function createEditorActions(options)
 	}
 
 
+	function bakeTimeTravel()
+	{
+		if (!state.timeTravelEnabled) return;
+		const dtYears = state.timeTravelYears;
+		if (dtYears === 0)
+		{
+			// Nothing to bake; still honor the click by exiting time travel.
+			setTimeTravelEnabled(false);
+			return;
+		}
+		for (const star of state.stars)
+		{
+			if (bakeStar(star, dtYears))
+			{
+				refreshStarPhotometry(star);
+			}
+		}
+		syncAll(renderer, state.stars);
+		state.isDirty = true;
+		updateStatus();
+		const ui = getUI();
+		if (state.selectedIndex >= 0)
+		{
+			ui.showSelection(state.stars[state.selectedIndex]);
+		}
+		setTimeTravelEnabled(false);
+		requestRender();
+	}
+
+
 	function deleteSelected()
 	{
 		if (state.selectedIndex < 0) return;
@@ -345,6 +376,7 @@ export function createEditorActions(options)
 		setAltAzGridVisible: (visible) => setGridVisibility('altaz', visible),
 		setTimeTravelEnabled,
 		setTimeTravelYears,
+		bakeTimeTravel,
 		onStarEdited,
 		selectStar,
 		addStarAtPixel,

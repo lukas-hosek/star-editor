@@ -104,7 +104,7 @@ export function createUI(controller) {
 	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
 		'btn-open', 'btn-save', 'btn-save-as', 'btn-manage', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
-		'btn-time-travel', 'time-travel-bar', 'time-travel-slider', 'time-travel-year', 'btn-time-travel-reset',
+		'btn-time-travel', 'time-travel-bar', 'time-travel-slider', 'time-travel-year', 'btn-time-travel-bake',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-proper-name', 'f-name',
@@ -228,10 +228,9 @@ export function createUI(controller) {
 		controller.setTimeTravelYears(next);
 	});
 
-	el['btn-time-travel-reset'].addEventListener('click', () => {
-		el['time-travel-slider'].value = 0;
-		refreshTimeTravelYear();
-		controller.setTimeTravelYears(0);
+
+	el['btn-time-travel-bake'].addEventListener('click', () => {
+		controller.bakeTimeTravel();
 	});
 
 	// Brightness slider: log10 gain, 0..+2 → ×1..×100.

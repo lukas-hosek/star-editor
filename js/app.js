@@ -109,6 +109,7 @@ const {
 	setAltAzGridVisible,
 	setTimeTravelEnabled,
 	setTimeTravelYears,
+	bakeTimeTravel,
 	onStarEdited,
 } = editorActions;
 
@@ -196,6 +197,7 @@ const controller = {
 	setAltAzGridVisible,
 	setTimeTravelEnabled,
 	setTimeTravelYears,
+	bakeTimeTravel,
 	onStarEdited,
 
 	setSkyMode(mode) {

@@ -88,10 +88,11 @@
       </div>
       <div id="time-travel-bar" class="hidden">
         <div class="time-travel-title">Time Travel</div>
-        <input id="time-travel-slider" type="range" min="-30000" max="30000" step="1" value="0" aria-label="Time travel year offset">
+        <input id="time-travel-slider" type="range" min="-30000" max="30000" step="1" value="0" list="time-travel-ticks" aria-label="Time travel year offset">
+        <datalist id="time-travel-ticks"><option value="0"></datalist>
         <div class="time-travel-readout">
           <span id="time-travel-year">Year 2000</span>
-          <button id="btn-time-travel-reset" type="button" title="Reset to present (J2000)" aria-label="Reset to present">↺</button>
+          <button id="btn-time-travel-bake" type="button" title="Apply current time offset to catalog and exit">Bake</button>
         </div>
       </div>
       <div id="banner" class="hidden"></div>

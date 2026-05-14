@@ -9,6 +9,23 @@
 import { sphereDir } from './camera.js';
 
 
+const AS2R = Math.PI / (180 * 3600);
+
+
+function isFiniteNum(v)
+{
+	return typeof v === 'number' && isFinite(v);
+}
+
+
+function hasKinematics(star)
+{
+	return isFiniteNum(star.x) && isFiniteNum(star.y) && isFiniteNum(star.z)
+		&& isFiniteNum(star.vx) && isFiniteNum(star.vy) && isFiniteNum(star.vz)
+		&& isFiniteNum(star.absmag);
+}
+
+
 // Single-star CPU mirror of the vertex shader's propagation. Returns the renderer-
 // convention unit direction vector and the apparent flux at the given year offset.
 // At dtYears = 0 we short-circuit to the catalog values to avoid producing NaNs for
@@ -31,6 +48,48 @@ export function displayedDirAndFlux(star, dtYears)
 	const newVmag = star.absmag + 5 * Math.log10(newDist) - 5;
 	const flux = Math.pow(10, -newVmag / 2.5);
 	return { dir, flux };
+}
+
+
+// Bake the propagated state back into the catalog fields of `star`. Rewrites
+// ra/dec/x/y/z/Vmag/Parallax/pmRA/pmDE in place so that, at dtYears=0, the star
+// renders exactly where the time-travel display had it. Returns true if the star
+// was baked, false if skipped (dt=0 or kinematics missing). Velocities and
+// absmag are left untouched — they are intrinsic to the star, not epoch-bound.
+export function bakeStar(star, dtYears)
+{
+	if (dtYears === 0) return false;
+	if (!hasKinematics(star)) return false;
+
+	const nx = star.x + star.vx * dtYears;
+	const ny = star.y + star.vy * dtYears;
+	const nz = star.z + star.vz * dtYears;
+	const newDist = Math.sqrt(nx * nx + ny * ny + nz * nz);
+
+	star.x = nx;
+	star.y = ny;
+	star.z = nz;
+	star.Vmag = star.absmag + 5 * Math.log10(newDist) - 5;
+	star.Parallax = 1 / newDist;
+	let newRa = Math.atan2(ny, nx);
+	if (newRa < 0) newRa += 2 * Math.PI;
+	star.ra = newRa;
+	star.dec = Math.asin(nz / newDist);
+
+	// Proper motion at the new epoch from the same kinematics. East/north
+	// bases at the new RA/Dec; v_ra and v_dec are pc/yr in those directions.
+	// HYG's pmra column stores the great-circle rate (μ_α · cos δ), so dividing
+	// by dist gives that directly — no extra cos δ factor.
+	const sinRa = Math.sin(star.ra);
+	const cosRa = Math.cos(star.ra);
+	const sinDec = Math.sin(star.dec);
+	const cosDec = Math.cos(star.dec);
+	const v_ra  = -star.vx * sinRa + star.vy * cosRa;
+	const v_dec = -star.vx * sinDec * cosRa - star.vy * sinDec * sinRa + star.vz * cosDec;
+	star.pmRA = (v_ra  / newDist) / AS2R;
+	star.pmDE = (v_dec / newDist) / AS2R;
+
+	return true;
 }
 
 
