@@ -45,7 +45,7 @@ This repo is a small browser-only BSC5 editor. Future agents should optimize for
 
 ## Project-specific rules
 
-- Preserve byte-level round-tripping where possible. Both `js/catalog-bsc.js` and `js/catalog-hyg.js` keep `_raw` for untouched records; only `_edited` stars are reconstructed on save.
+- Both `js/catalog-bsc.js` and `js/catalog-hyg.js` always reconstruct every star on save; there is no raw-passthrough path.
 - Treat `ybsc5.readme` as the authoritative field-layout reference before changing parse/serialize offsets.
 - Do not introduce a Node.js-based verification path. The user does not have Node installed and does not intend to install it.
 - When adding any new feature, update this file. Add a section or extend an existing one to cover: what the feature does, which files it touches, and any non-obvious control flow or state. Keep entries concise but complete enough that a future agent can understand the design without re-reading the code.
@@ -165,9 +165,19 @@ There are three view modes, toggled by a segmented button in the toolbar (`#sky-
 - `state.catalogFormat` (`'bsc'` | `'hyg'`) tracks the loaded format so `serialize()` dispatches to the correct writer.
 - HYG stars share the same internal shape as BSC stars, with nine additional fields: `x`, `y`, `z` (parsecs), `vx`, `vy`, `vz` (km/s), and the catalog-ID fields `hygId`, `glieseId`, `primaryHygId`. BSC stars and newly added stars have all nine set to `null`.
 - Catalog-ID fields: `hygId` is the HYG sequential integer id (CSV col 0); `glieseId` is the Gliese designation string (CSV col 4, e.g. `"Gl 551"`), null if absent; `primaryHygId` is the `comp_primary` integer (CSV col 31) referencing the primary star's HYG id for secondaries in multi-star systems.
-- Unit conversion on HYG load: `pmra`/`pmdec` (mas/yr) → `pmRA`/`pmDE` (arcsec/yr) divided by 1000; `dist` (pc) → `Parallax` (arcsec) as `1/dist`. On save the reverse conversion is applied for `_edited` rows.
-- `_raw` round-trip: unedited HYG rows emit their original CSV line verbatim. Edited rows are reconstructed from the mapped fields; unmapped HYG columns (`hip`, `proper`, `bayer`, `flam`, `con`, `comp`, `lum`, `var`, etc.) are written as blank.
+- Unit conversion on HYG load: `pmra`/`pmdec` (mas/yr) → `pmRA`/`pmDE` (arcsec/yr) divided by 1000; `dist` (pc) → `Parallax` (arcsec) as `1/dist`. On save the reverse conversion is applied.
+- All HYG rows are reconstructed from the mapped fields on save; unmapped HYG columns (`hip`, `proper`, `bayer`, `flam`, `con`, `comp`, `lum`, `var`, etc.) are written as blank.
 - Touched files: `js/catalog-bsc.js` (renamed from `catalog.js`, exports renamed to `parseBscCatalog`/`serializeBscCatalog`), `js/catalog-hyg.js` (new), `js/app-editor-actions.js`, `js/app.js`, `js/ui.js`, `service-worker.js`, `AGENTS.md`.
+
+## Manage dialog
+
+- A "Manage…" toolbar button (disabled until a catalog is loaded) opens a centered modal overlay (`#manage-overlay`) defined in `index.html` and styled with `.modal-overlay` / `.modal` in `styles.css`.
+- Modal logic lives in `js/ui-manage.js` (`createManageUI(controller)`), following the same factory pattern as `ui-sky-controls.js`. `js/ui.js` imports it and calls it after `createSkyControls`.
+- **Process section**: two checkboxes and a Process button. "Remove stars with invalid kinematics" filters out stars where `Parallax` is null or equals the HYG sentinel (dist=100000 pc → Parallax ≈ 1e-5). "Remove stars fainter than [mag]" filters out stars with `Vmag > threshold`. The magnitude number input is disabled until its checkbox is checked.
+- Pressing Process calls `processCatalog(opts)` in `js/app-editor-actions.js`, which replaces `state.stars` with the filtered array, rebuilds `maxHR`, calls `syncAll()`, and marks `isDirty`. The modal stays open after processing.
+- **Footer**: "Export as HYG" and "Export as BSC" call `serializeAs(format)` on the controller, then save via FSA picker (Chromium) or a Blob download (fallback). Export does not change `state.fileHandle`, `state.fileName`, or `state.catalogFormat`.
+- Modal closes on backdrop click or Escape key.
+- Touched files: `index.html`, `styles.css`, `js/ui-manage.js` (new), `js/ui.js`, `js/app-editor-actions.js`, `service-worker.js`, `AGENTS.md`.
 
 ## Validation
 - Use Chromium for browser validation in this repo. Do not spend time probing for other browsers before running a test.

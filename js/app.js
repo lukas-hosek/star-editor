@@ -95,6 +95,8 @@ const editorActions = createEditorActions({
 const {
 	loadCatalog,
 	serialize,
+	serializeAs,
+	processCatalog,
 	markSaved,
 	setAddMode,
 	setAllowMoving,
@@ -170,6 +172,8 @@ const controller = {
 
 	loadCatalog,
 	serialize,
+	serializeAs,
+	processCatalog,
 	markSaved,
 	setAddMode,
 	setAllowMoving,

@@ -2,6 +2,7 @@
 // with a download fallback for browsers that do not support direct file handles.
 // All DOM lookups happen once, in createUI.
 
+import { createManageUI } from './ui-manage.js';
 import { createSkyControls } from './ui-sky-controls.js';
 import { createStarFormUI } from './ui-star-form.js';
 
@@ -97,7 +98,7 @@ export function createUI(controller) {
 	const el = {};
 	const supportsFileSystemAccess = canUseFileSystemAccess();
 	const ids = [
-		'btn-open', 'btn-save', 'btn-save-as', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
+		'btn-open', 'btn-save', 'btn-save-as', 'btn-manage', 'btn-add', 'btn-delete', 'btn-move', 'star-size-toggle', 'btn-grid', 'btn-altaz-grid',
 		'brightness', 'brightness-readout', 'status',
 		'panel-empty', 'panel-form', 'panel-title', 'panel-subtitle', 'subtitle-class', 'subtitle-dist',
 		'f-proper-name', 'f-name',
@@ -243,11 +244,15 @@ export function createUI(controller) {
 	function setCatalogLoaded(loaded) {
 		el['btn-save'].disabled = !loaded;
 		el['btn-save-as'].disabled = !loaded;
+		el['btn-manage'].disabled = !loaded;
 		el['btn-add'].disabled = !loaded;
 		el['btn-move'].disabled = !loaded;
 	}
 
 	const skyControls = createSkyControls(controller, el);
+
+	const manageUI = createManageUI(controller);
+	el['btn-manage'].addEventListener('click', manageUI.openManage);
 
 	return {
 		showNoSelection: starForm.showNoSelection,

@@ -133,7 +133,6 @@ export function createCanvasInteractions(options)
 			if (!isFinite(ra) || !isFinite(dec)) return;
 			s.ra = ra;
 			s.dec = dec;
-			s._edited = true;
 			syncOne(renderer, drag.starIndex, s);
 			ui.refreshSelection(s);
 			state.isDirty = true;

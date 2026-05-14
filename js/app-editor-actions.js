@@ -78,6 +78,52 @@ export function createEditorActions(options)
 	}
 
 
+	function serializeAs(format)
+	{
+		return format === 'hyg'
+			? serializeHygCatalog(state.stars)
+			: serializeBscCatalog(state.stars);
+	}
+
+
+	function processCatalog({ removeInvalidKinematics, removeFainterThan })
+	{
+		const before = state.stars.length;
+		let kept = state.stars;
+
+		if (removeInvalidKinematics) {
+			// HYG sentinel distance is 100000 pc → Parallax = 1/100000 ≈ 0.00001.
+			// Exclude stars where the real distance is unknown (Parallax null or at the sentinel).
+			kept = kept.filter(star =>
+				star.Parallax !== null && star.Parallax > 1 / 99999
+			);
+		}
+
+		if (removeFainterThan !== null && isFinite(removeFainterThan)) {
+			kept = kept.filter(star => star.Vmag === null || star.Vmag <= removeFainterThan);
+		}
+
+		state.stars = kept;
+
+		let maxHR = 0;
+		for (const star of state.stars) if (star.HR > maxHR) maxHR = star.HR;
+		state.maxHR = maxHR;
+
+		if (state.selectedIndex >= state.stars.length) {
+			state.selectedIndex = -1;
+			getUI().showNoSelection();
+		}
+
+		state.isDirty = true;
+		syncAll(renderer, state.stars);
+		skyState.needsAltUpdate = true;
+		updateStatus();
+		requestRender();
+
+		return { removed: before - state.stars.length, before };
+	}
+
+
 	function markSaved()
 	{
 		state.isDirty = false;
@@ -179,7 +225,6 @@ export function createEditorActions(options)
 		const selectedIndex = state.selectedIndex;
 		if (selectedIndex < 0) return;
 		const selectedStar = state.stars[selectedIndex];
-		selectedStar._edited = true;
 		refreshStarPhotometry(selectedStar);
 		syncOne(renderer, selectedIndex, selectedStar);
 		state.isDirty = true;
@@ -241,6 +286,8 @@ export function createEditorActions(options)
 		updateStatus,
 		loadCatalog,
 		serialize,
+		serializeAs,
+		processCatalog,
 		markSaved,
 		setAddMode,
 		setAllowMoving,

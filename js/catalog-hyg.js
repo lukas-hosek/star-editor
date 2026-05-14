@@ -114,8 +114,6 @@ export function parseHygCatalog(text) {
 			vy: parseNum(f[21]),
 			vz: parseNum(f[22]),
 
-			_raw:    rawLine,
-			_edited: false,
 		};
 
 		refreshStarPhotometry(star);
@@ -142,11 +140,6 @@ function csvStr(v) {
 export function serializeHygCatalog(stars) {
 	const out = [HYG_HEADER];
 	for (const star of stars) {
-		if (!star._edited && star._raw) {
-			out.push(star._raw);
-			continue;
-		}
-
 		// Reverse-map internal fields back to HYG column values.
 		const dist      = (star.Parallax !== null && star.Parallax > 0) ? 1 / star.Parallax : null;
 		const pmra_mas  = star.pmRA !== null ? star.pmRA * 1000  : null; // arcsec/yr → mas/yr

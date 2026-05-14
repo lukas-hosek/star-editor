@@ -141,9 +141,6 @@ export function parseBscCatalog(text) {
 			glieseId:     null,
 			properName:   null,
 			primaryHygId: null,
-
-			_raw: rawLine,      // original, so unedited fields round-trip byte-exact
-			_edited: false,
 		};
 
 		refreshStarPhotometry(star);
@@ -235,12 +232,7 @@ function spliceField(buf, aOneBased, bOneBased, value) {
 export function serializeBscCatalog(stars) {
 	const out = [];
 	for (const star of stars) {
-		if (!star._edited && star._raw !== undefined && star._raw !== '') {
-			// Un-edited stars: pass through original bytes unchanged.
-			out.push(star._raw);
-			continue;
-		}
-		const buf = (star._raw || '').padEnd(RECORD_LEN, ' ').split('');
+		const buf = ''.padEnd(RECORD_LEN, ' ').split('');
 
 		// HR
 		spliceField(buf, 1, 4, fmtI(star.HR, 4));
@@ -312,8 +304,6 @@ export function makeNewStar({ ra, dec, HR }) {
 		glieseId:     null,
 		properName:   null,
 		primaryHygId: null,
-		_raw: '',
-		_edited: true,
 	};
 	refreshStarPhotometry(star);
 	return star;
